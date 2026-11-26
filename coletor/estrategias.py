@@ -280,7 +280,9 @@ def main():
                   f"| Diferença ao ano (real menos dólar) | {fmt(mr['cagr'] - md['cagr'])} | — | — |", "",
                   f"Período: {len(dias)} pregões, de {datetime.fromtimestamp(int(dias[0]) * 86400, timezone.utc):%Y-%m-%d} a "
                   f"{datetime.fromtimestamp(int(dias[-1]) * 86400, timezone.utc):%Y-%m-%d}. Juro americano: título de 13 semanas (^IRX).", "",
-                  "Carry positivo = o juro maior do Brasil compensou a alta do dólar no período. Não inclui imposto nem IOF.", ""]
+                  ("Carry positivo: o juro maior do Brasil compensou a alta do dólar no período." if mr["cagr"] - md["cagr"] > 0.005 else
+                   "Carry negativo: a alta do dólar comeu mais do que o juro maior do Brasil rendeu." if mr["cagr"] - md["cagr"] < -0.005 else
+                   "Carry praticamente zero: no período, o juro maior do Brasil só compensou a alta do dólar, sem sobra.") + " Não inclui imposto nem IOF.", ""]
         except Exception as e:
             L += ["## Carry do dólar", "", f"Não consegui calcular: {e}", ""]
     L += ["## Limites (autocrítica)", "",
