@@ -12,6 +12,7 @@ Diagnósticos: `b1_confere` (noite × pregão no 1 h), `e3_ml_custos`, `e4_ml_ro
 
 Auditoria do modelo (nota `01 Projeto/Auditoria do modelo 2026-11-26.md`): `ml_core` (núcleo com embargo e placebos)
 → `g1_auditoria_rodadas base|placebo|desloca|grupos` → `g2_auditoria_analise` → `g3_mc`.
+Custo baixo e entrada no regime (nota `01 Projeto/Custo baixo e entrada no regime 2026-11-26.md`): `i_custo_regime` (depois do `g1 base`).
 
 ## Revisão do código (autoanálise)
 
