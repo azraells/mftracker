@@ -226,7 +226,7 @@ svg.spark{display:block}
    MF Tracker v0.1 — motor de análise + diário de simulações
    Tudo roda no navegador. Fontes reais, sem dados inventados.
    ============================================================ */
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const DAY = 86400000;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -509,6 +509,7 @@ function combine(f, keys){ let s=0, d=0; for(const k of keys){ const w=DB.weight
 /* ---------------- Calibração por análogos históricos ---------------- */
 const BT_KEYS = FACTORS.filter(x=>x.bt).map(x=>x.k);
 const WARM = 100;
+const SHRINK_K = 100; // mesmo valor do motor Python (coletor/motor.py)
 function analyze(a){
   const I = a.ind, N = I.C.length; if(N < WARM+30) return {err:"histórico insuficiente ("+N+" candles)"};
   const cost = CLASSES[a.cls].cost;
@@ -530,9 +531,12 @@ function analyze(a){
     while(band<=0.5){ an = idx.filter(i=>Math.sign(sHist[i])===dir && Math.abs(sHist[i]-sTech)<=band); if(an.length>=20) break; band+=0.04; }
     if(an.length<12){ res.push({h, n:an.length, insufficient:true, base}); continue; }
     const rr = an.map(i=>dir*fwd(i)-cost);
-    const hits = rr.filter(x=>x>0).length; const p0 = (hits+1)/(an.length+2);
+    const hits = rr.filter(x=>x>0).length; const pRaw = (hits+1)/(an.length+2);
+    // encolhimento para a taxa base (backtest de 26/11/2026: sem isso as chances saíam ~10 p.p. infladas)
+    const k = an.length/(an.length+SHRINK_K), expBase = mean(idx.map(i=>dir*fwd(i)-cost));
+    const p0 = base + (pRaw-base)*k, expS = expBase + (mean(rr)-expBase)*k;
     const wins = rr.filter(x=>x>0), losses = rr.filter(x=>x<=0).map(x=>-x);
-    res.push({h, n:an.length, band, base, p0, exp:mean(rr), avgWin:wins.length?mean(wins):0, medWin:wins.length?median(wins):0, avgLoss:losses.length?mean(losses):0, worst:Math.min(...rr), dates:an.map(i=>a.candles[i].t)});
+    res.push({h, n:an.length, band, base, p0, pRaw, shrink:k, exp:expS, expRaw:mean(rr), avgWin:wins.length?mean(wins):0, medWin:wins.length?median(wins):0, avgLoss:losses.length?mean(losses):0, worst:Math.min(...rr), dates:an.map(i=>a.candles[i].t)});
   }
   const valid = res.filter(r=>!r.insufficient);
   if(!valid.length) return {dir, sTech, sAll, fNow, ns, mc, res, err:"poucos casos semelhantes no histórico"};
@@ -549,7 +553,7 @@ function analyze(a){
   const stopPct = Math.max(best.avgLoss*1.2, 1.5*atrPct);
   const stop = price*(1-dir*stopPct);
   const b = best.avgLoss>0 ? best.avgWin/best.avgLoss : 1;
-  const kelly = Math.max(0, p - (1-p)/b);
+  const kelly = b>0 ? Math.max(0, p - (1-p)/b) : 0;
   const frac = Math.min(0.10, kelly*DB.settings.kelly);
   const edge = p - best.base;
   const banks = bankPlan(a, dir, frac, price, best, stopPct);
@@ -1235,12 +1239,13 @@ function renderMethod(){
   <p>O objetivo desta fase é <b>provar ou desmentir</b> que o modelo tem vantagem, sem arriscar dinheiro. Tudo é simulação.</p>
   <h4>1. Dados reais</h4><ul><li>Cripto e memecoins: Coinbase, preço em tempo real a cada 20 segundos e candles diários.</li><li>B3: brapi.dev (cotação pode ter atraso de até 15–30 min no plano grátis).</li><li>EUA: Twelve Data (fechamento diário e cotação; sem chave só AAPL e QQQ).</li><li>Câmbio: AwesomeAPI. Juros: Banco Central (Selic). Humor do mercado cripto: índice Medo & Ganância (alternative.me). Mercado cripto total: CoinGecko.</li><li>Notícias: InfoMoney, Money Times, CoinDesk e Cointelegraph, lidas a cada 15 minutos.</li></ul>
   <h4>2. Nove fatores</h4><p>Tendência, momento, exaustão (RSI), desvio da média (Bollinger), fluxo de volume, psicologia, nicho, notícias e contexto global. Cada um vira um número de −1 a +1. A soma ponderada pelos pesos aprendidos dá a pontuação.</p>
-  <h4>3. A chance vem do histórico, não de achismo</h4><p>Para cada ativo, o modelo recalcula a pontuação técnica em cada dia do último ano e procura os dias parecidos com hoje. A chance é a proporção desses casos que terminaram na direção prevista depois de 3, 7 ou 14 dias, já descontando custos, com suavização de Laplace. A <b>taxa base</b> mostra quanto essa direção acerta sem filtro algum: se a chance não supera a taxa base, o sinal não acrescenta nada e a oportunidade não é registrada.</p>
+  <h4>3. A chance vem do histórico, não de achismo</h4><p>Para cada ativo, o modelo recalcula a pontuação técnica em cada dia do último ano e procura os dias parecidos com hoje. A chance é a proporção desses casos que terminaram na direção prevista depois de 3, 7 ou 14 dias, já descontando custos, com suavização de Laplace e depois puxada para a taxa base (com n casos, só n/(n+100) da diferença conta). A <b>taxa base</b> mostra quanto essa direção acerta sem filtro algum: se a chance não supera a taxa base, o sinal não acrescenta nada e a oportunidade não é registrada.</p>
   <h4>4. Valor simulado</h4><p>Critério de Kelly fracionado (padrão: 1/4 de Kelly, máximo 10% da banca virtual). Esse método só aposta mais quando a vantagem estimada e a relação ganho/perda justificam.</p>
   <h4>5. Psicologia e neurociência</h4><p>Não existe uma fonte de dados de "neurociência" do mercado. O que dá para medir são os efeitos dos vieses humanos no preço: aversão à perda e efeito manada aparecem como medo extremo e capitulação (sequências de queda, distância da máxima); excesso de confiança e FOMO aparecem como ganância extrema e euforia. O fator de psicologia é <b>contrário à multidão</b> nesses extremos. O próprio MF Tracker também se protege de vieses: registra <b>todas</b> as oportunidades automaticamente (sem escolher só as boas), com prazo fixo, e avalia sem você poder apagar os erros.</p>
   <h4>6. Avaliação e aprendizado</h4><p>No vencimento, o MF Tracker busca o preço real, calcula o resultado líquido, o melhor e o pior momento, se o alvo ou o stop foram tocados, e verifica fator por fator quem apontou certo. Os pesos dos fatores são ajustados (atualização multiplicativa), e a diferença entre chance prevista e acerto real corrige as próximas previsões. Se o app ficar fechado, a avaliação acontece na próxima vez que abrir, usando o preço histórico do dia do vencimento.</p>
   <h4>7. Bancas simuladas</h4><p>A mesma operação roda em paralelo em várias bancas (padrão: R$ 50, 100, 300, 500, 1.000, 2.500, 5.000 e 10.000), com a mesma fração de Kelly. O programa respeita o valor mínimo de cada ordem (1 ação na B3, cerca de R$ 10 em cripto e EUA, R$ 5 em DEX) e desconta custos fixos e o deslizamento de preço em pools pequenos. Por isso uma banca pequena às vezes não consegue entrar, e isso fica registrado.</p>
   <h4>8. Memecoins novas (DEX)</h4><p>O radar lê os pools em tendência e os novos da GeckoTerminal e as moedas impulsionadas da DexScreener. Moedas acompanhadas usam candles por hora e prazos de 6, 24 e 72 horas, porque quase não têm histórico diário. Previsões de queda nessas moedas ficam só como previsão, porque não dá para vender a descoberto numa DEX. Se a liquidez despencar, a análise registra o risco de golpe.</p>
+  <h4>O que o backtest mostrou (26/11/2026)</h4><p>Testei este método em 24 ativos, de 2012 (ou da listagem) até hoje, sem olhar o futuro. Resultado: <b>sem vantagem real</b>. As chances saíam cerca de 10 pontos acima do acerto real (corrigido nesta versão: a chance agora é puxada para a taxa base conforme o número de casos parecidos). Escolhendo fatores numa metade do histórico e testando na outra, o retorno acima da tendência média do mercado ficou em zero. Ou seja: hoje os registros deste programa são <b>estudo</b>, não sinal para operar. Relatórios completos no vault, em 01 Projeto/Backtest.</p>
   <h4>Limites conhecidos (sinceridade)</h4><ul>
   <li>Memecoins novas têm poucas centenas de horas de histórico e são dominadas por baleias, bots e notícias de redes sociais que o programa ainda não lê (X/Telegram). Qualquer chance calculada para elas é bem menos confiável.</li>
   <li>Notícias e contexto global ainda <b>não têm calibração histórica</b> (não temos manchetes antigas). Por isso entram só como ajuste pequeno, e o aprendizado vai mostrar se ajudam.</li>
