@@ -1272,6 +1272,7 @@ setInterval(()=>{ $("#clock").textContent = new Date().toLocaleTimeString("pt-BR
 async function loadAllCandles(){
   const cb = ASSETS.filter(a=>a.src==="coinbase");
   await Promise.all(cb.map(async a=>{ try{ await loadCoinbase(a); a.err=null; feedOk("coinbase"); }catch(e){ a.err=e.message; feedErr("coinbase",e); } }));
+  try{ await tickCrypto(); runAnalysis(); renderAll(); renderPanel(true); }catch(e){ console.error(e); }
   try{ await loadBrapi(ASSETS.filter(a=>a.src==="brapi"), true); feedOk("brapi"); }catch(e){ ASSETS.filter(a=>a.src==="brapi").forEach(a=>a.err=e.message); feedErr("brapi",e); }
   const fx = ASSETS.find(a=>a.src==="awesome"); try{ await loadAwesome(fx); await liveAwesome(fx); feedOk("awesome"); }catch(e){ fx.err=e.message; feedErr("awesome",e); }
 }
@@ -1294,7 +1295,9 @@ async function cycle(){
 }
 async function boot(){
   renderMethod(); fillCfg(); initChart(); renderFeeds(); renderAll(); initVault();
-  await Promise.all([loadContext(), loadAllCandles(), loadNews(false), loadDex()]);
+  // cada fonte desenha a tela assim que chega, sem esperar as mais lentas (DEX e brapi têm filas)
+  let first=true; const step = pr => pr.then(()=>{ runAnalysis(); renderAll(); if(first){ first=false; renderPanel(true); } }).catch(e=>console.error(e));
+  await Promise.all([step(loadContext()), step(loadAllCandles()), step(loadNews(false)), step(loadDex())]);
   await Promise.all([tickCrypto(), tickDex()]); lastDex = Date.now();
   runAnalysis(); evaluateDue(); renderAll(); renderPanel(true);
   lastFull = Date.now();
