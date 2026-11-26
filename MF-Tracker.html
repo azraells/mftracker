@@ -172,6 +172,8 @@ svg.spark{display:block}
         </div>
         <div id="trRes" style="margin-top:14px"></div>
       </div>
+      <div class="card" style="margin-top:14px"><h3>Robôs (simulação) <span class="mut" style="text-transform:none;letter-spacing:0">regras de regime com as contas completas</span></h3><div id="trBots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px"></div>
+        <p class="note">Cada robô segue uma regra de "dentro ou fora" testada fora da amostra, numa carteira igual dos ativos do mercado, com o valor que você escolher. Diferente das vitrines de corretora, o cartão mostra o <b>resultado esperado por dia</b> (acerto × ganho − erro × perda), a maior queda, o número de dias, o custo descontado e a comparação com segurar. Os números do cartão são dos últimos 250 dias de candles; o placar <b>ao vivo</b> só conta a partir da ativação. Nada é enviado à corretora.</p></div>
       <div class="card" style="margin-top:14px"><h3>Dentro ou fora do mercado (regime) <span class="mut" id="regInfo" style="text-transform:none;letter-spacing:0"></span></h3><div id="trReg"></div></div>
       <div class="card" style="margin-top:14px"><h3>Sugestões agora <span><button class="btn sm" id="trSugBtn">Atualizar sugestões</button></span></h3><div id="trSug"></div></div>
       <div class="g4" id="trKpi" style="margin-top:14px"></div>
@@ -247,7 +249,7 @@ svg.spark{display:block}
    MF Tracker v0.1 — motor de análise + diário de simulações
    Tudo roda no navegador. Fontes reais, sem dados inventados.
    ============================================================ */
-const VERSION = "0.5.0";
+const VERSION = "0.5.1";
 const DAY = 86400000;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -1271,6 +1273,7 @@ function renderMethod(){
   <h4>Aba Trading</h4><p>Para qualquer ativo, valor e prazo (15 min a 14 dias), a aba busca candles reais do mesmo tamanho do prazo (cripto: Coinbase, até 1.200 candles; demais mercados: diários) e mede como terminaram todas as janelas passadas desse prazo: chance de lucro depois dos custos, resultado médio, faixa de 50% dos casos e extremos. Se houver histórico, filtra os momentos em que a pontuação técnica estava parecida com a de agora, puxando a chance para a taxa sem filtro (mesmo encolhimento K=100). Stop e alvo opcionais mostram qual costuma ser tocado primeiro. Cada posição marcada é avaliada sozinha no vencimento com preço real e vira nota TR- em 04 Operações. O selo vem de 99 Meta/validacao.json, gerado por coletor\backtest_intradiario.py: só verde significa vantagem confirmada fora da amostra.</p>
   <h4>Faixa provável e volatilidade</h4><p>Prever a direção não passou em nenhum teste; prever o tamanho do movimento é mais viável. Se o vault tiver 99 Meta/faixa.json (gerado por coletor\faixa.py), a faixa de 50% e os extremos da aba Trading passam a ser medidos em relação à volatilidade do momento (média exponencial dos retornos), com o peso alfa escolhido na 1ª metade do histórico e conferido na 2ª. O placar "caiu na faixa prevista" mostra se isso se confirma ao vivo: o certo é perto de 50%.</p>
   <h4>Dentro ou fora do mercado (regime)</h4><p>Em 26/11/2026 foram mais de 6.000 simulações (scripts em coletor/pesquisa, notas em 01 Projeto: Pesquisa autônoma e Auditoria do modelo). Prever a direção de cada hora não paga o custo: o melhor modelo acerta 55% em 4 horas, mas ganha só +0,11% por operação, menos do que a taxa mais o deslizamento. O que funcionou foi decidir <b>quando estar dentro ou fora</b>, com o tamanho reduzido quando a volatilidade sobe: momento de 21 pregões na B3, média de 50 dias em cripto e rompimento de 20 dias em memecoins, cada uma com saída por tempo. Escolhidas na 1ª metade do histórico e conferidas na 2ª, elas cortaram as maiores quedas (cripto −31% contra −64%; B3 −11% contra −45%), mas nenhuma passou na correção por testes múltiplos, por isso o selo é amarelo. Na bolsa americana e no dólar nada superou segurar. O programa registra cada mudança de estado para medir as regras ao vivo (02 Mercados/Regime ao vivo.md).</p>
+  <h4>Robôs (simulação)</h4><p>Cada regra de regime também aparece como um robô, no formato das vitrines de robôs das corretoras (ganho médio, perda média e acerto por dia), mas com o que essas vitrines costumam omitir: o resultado esperado por dia (acerto × ganho médio − erro × perda média), o fator de lucro, a maior queda, quantos dias foram medidos, o custo descontado, a comparação com segurar e o selo do teste fora da amostra. Taxa de acerto alta com poucos dias, ou acerto acima de 50% com perda média maior que o ganho médio, não indicam vantagem. Ativar um robô só liga o placar ao vivo da simulação.</p>
   <h4>Limites conhecidos (sinceridade)</h4><ul>
   <li>Memecoins novas têm poucas centenas de horas de histórico e são dominadas por baleias, bots e notícias de redes sociais que o programa ainda não lê (X/Telegram). Qualquer chance calculada para elas é bem menos confiável.</li>
   <li>Notícias e contexto global ainda <b>não têm calibração histórica</b> (não temos manchetes antigas). Por isso entram só como ajuste pequeno, e o aprendizado vai mostrar se ajudam.</li>
@@ -1282,7 +1285,7 @@ function renderMethod(){
   <li>Nada aqui é recomendação de investimento.</li></ul>`;
 }
 function renderAll(){ // um painel com erro não pode travar os outros nem o carregamento
-  for(const f of [renderSide, ()=>renderPanel(false), renderJournal, renderPerf, renderNews, renderRegime]){ try{ f(); }catch(e){ console.error(e); } }
+  for(const f of [renderSide, ()=>renderPanel(false), renderJournal, renderPerf, renderNews, renderRegime, renderBots]){ try{ f(); }catch(e){ console.error(e); } }
 }
 function toast(m){ const t=$("#toast"); t.textContent=m; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", 6000); }
 
@@ -1512,31 +1515,36 @@ const REGRAS = {
   us:{nome:null, res:"Nenhuma regra superou segurar no teste (o conjunto de tendências deu +22,8% contra +34,4%)."},
   fx:{nome:null, res:"Nenhuma regra superou segurar no teste."},
 };
-function regCalc(a){
+function regSerie(a){ // pesos diários da regra (0 ou 1), tamanho pela vol e vol de 20 dias, decididos no fechamento de cada dia
   const R = REGRAS[a.cls]; if(!R || !R.nome) return null;
-  const c = a.candles.map(x=>x.c).filter(x=>x>0), n = c.length; if(n < 60) return {err:"histórico curto ("+n+" dias)"};
+  const cs = a.candles.filter(x=>x.c>0), c = cs.map(x=>x.c), n = c.length; if(n < 60) return {err:"histórico curto ("+n+" dias)"};
   const base = new Array(n).fill(0);
   if(a.cls==="crypto"){ let s=0; for(let i=0;i<n;i++){ s+=c[i]; if(i>=50) s-=c[i-50]; if(i>=49) base[i] = c[i] > s/50 ? 1 : 0; } }
   else if(a.cls==="b3"){ for(let i=21;i<n;i++) base[i] = c[i]/c[i-21]-1 > 0 ? 1 : 0; }
   else if(a.cls==="meme"){ let pos=0; for(let i=10;i<n;i++){ const lo=Math.min(...c.slice(i-10,i)); if(i>=20 && c[i]>Math.max(...c.slice(i-20,i))) pos=1; else if(c[i]<lo) pos=0; base[i]=pos; } }
   // saída por tempo: depois de R.tempo dias dentro, sai e espera 5 dias (mesma lógica de f_saidas_mc.py)
-  const w = new Array(n).fill(0); let dentro=0, bloq=0;
+  const w = new Array(n).fill(0); const dentroA = new Array(n).fill(0); let dentro=0, bloq=0;
   for(let i=0;i<n;i++){
     if(base[i]<=0){ dentro=0; bloq=0; continue; }
     if(bloq>0){ bloq--; if(bloq===0) dentro=0; continue; }
-    dentro++; if(dentro>R.tempo){ bloq=5; continue; } w[i]=1;
+    dentro++; dentroA[i]=dentro; if(dentro>R.tempo){ bloq=5; continue; } w[i]=1;
   }
   // tamanho pela volatilidade: vol de 20 dias contra a vol típica do histórico disponível
-  const r = c.map((x,i)=>i? x/c[i-1]-1 : 0), rv = [];
+  const r = c.map((x,i)=>i? x/c[i-1]-1 : 0), rv = new Array(n).fill(NaN);
   for(let i=20;i<n;i++){ const sl=r.slice(i-19,i+1), m=mean(sl); rv[i] = Math.sqrt(sl.reduce((s,x)=>s+(x-m)**2,0)/19) * Math.sqrt(R.per); }
-  const tv = median(rv.filter(x=>x>0)), vAgora = rv[n-1], tam = w[n-1] ? Math.min(1, tv/vAgora) : 0;
+  const tv = median(rv.filter(x=>x>0)); const ws = w.map((x,i)=> x && rv[i]>0 ? Math.min(1, tv/rv[i]) : 0);
+  return {t:cs.map(x=>x.t), c, base, w, ws, rv, tv, dentroA, R, n};
+}
+function regCalc(a){
+  const S = regSerie(a); if(!S || S.err) return S;
+  const {c, base, w, ws, rv, tv, R, n} = S;
   let desde = n-1; while(desde>0 && w[desde-1]===w[n-1]) desde--;
   const px = c[n-1]; let gat = null;
   if(a.cls==="crypto"){ const m50 = mean(c.slice(n-50)); gat = {txt:"média de 50 dias", nivel:m50, dist:px/m50-1}; }
   else if(a.cls==="b3"){ gat = {txt:"preço de 21 pregões atrás", nivel:c[n-22], dist:px/c[n-22]-1}; }
   else { const hi=Math.max(...c.slice(n-21,n-1)), lo=Math.min(...c.slice(n-11,n-1)); gat = base[n-1] ? {txt:"mínima de 10 dias (saída)", nivel:lo, dist:px/lo-1} : {txt:"máxima de 20 dias (entrada)", nivel:hi, dist:px/hi-1}; }
   const pausa = base[n-1] && !w[n-1];
-  return {est:w[n-1], tam, vol:vAgora, tv, dias:n-1-desde, dentro, pausa, gat, px, R};
+  return {est:w[n-1], tam:ws[n-1], vol:rv[n-1], tv, dias:n-1-desde, dentro:S.dentroA[n-1], pausa, gat, px, R};
 }
 function regLog(a, g){ // registro ao vivo: guarda cada mudança de estado (e o tamanho) para medir a regra daqui em diante
   if(!g || g.err) return; DB.regLog = DB.regLog || {}; const L = DB.regLog[a.sym] = DB.regLog[a.sym] || [];
@@ -1587,7 +1595,91 @@ _Regravado pelo programa a cada sincronização. Não editar à mão. Regras de 
 | Ativo | Estado | Tamanho | Regra e gatilho | Ao vivo |
 |---|---|---|---|---|
 ${L}
+
+## Robôs (simulação)
+| Robô | Ganho / perda média por dia | Acerto | Esperado por dia | Maior queda | Robô × segurar (250 dias) | Ao vivo |
+|---|---|---|---|---|---|---|
+${botsMarkdown()}
 `;
+}
+
+/* ---------------- Robôs: cada regra de regime como um robô, no formato dos robôs de corretora, mas com as contas completas ---------------- */
+const BOTS = [
+  {cls:"crypto", nome:"Regime Cripto", sub:"BTC, ETH, SOL e XRP · média de 50 dias", selo:"amarelo", teste:"Fora da amostra (2ª metade): +47,8% ao ano contra +29,1% de segurar; maior queda −31% contra −64%."},
+  {cls:"b3", nome:"Regime B3", sub:"Ações da B3 · momento de 21 pregões", selo:"amarelo", teste:"Fora da amostra: +19,7% ao ano contra +12,6%; maior queda −11% contra −45%."},
+  {cls:"meme", nome:"Regime Memecoins", sub:"DOGE, SHIB, PEPE, BONK e WIF · rompimento de 20 dias", selo:"vermelho", teste:"Fora da amostra: −20,6% ao ano contra −70,1% de segurar. Perde menos, mas perde."},
+];
+const BOT_JANELA = 250; // dias medidos no cartão (depois do aquecimento da regra)
+function botSerie(cls){ // retorno diário da carteira igual da classe seguindo a regra, com custo a cada mudança de posição
+  const cost = CLASSES[cls].cost, por = new Map(), bh = new Map();
+  for(const a of ASSETS.filter(x=>x.cls===cls)){
+    const S = regSerie(a); if(!S || S.err) continue;
+    for(let i=Math.max(2,60); i<S.n; i++){
+      const d = dayKey(S.t[i]), pos = S.ws[i-1], ant = S.ws[i-2], ri = S.c[i]/S.c[i-1]-1;
+      const v = pos*ri - Math.abs(pos-ant)*cost/2;
+      if(!por.has(d)){ por.set(d, []); bh.set(d, []); } por.get(d).push({v, pos}); bh.get(d).push(ri);
+    }
+  }
+  const dias = [...por.keys()].sort((x,y)=>x-y).slice(-BOT_JANELA);
+  return dias.map(d=>{ const L = por.get(d); return {d, r: mean(L.map(x=>x.v)), expo: mean(L.map(x=>x.pos)), bh: mean(bh.get(d)), n: L.length}; });
+}
+function botStats(cls, valor){
+  const S = botSerie(cls); if(S.length < 30) return null;
+  const pos = S.filter(x=>x.expo>0), g = pos.filter(x=>x.r>0), p = pos.filter(x=>x.r<0);
+  let eq=1, pico=1, queda=0; const curva=[1]; S.forEach(x=>{ eq*=1+x.r; pico=Math.max(pico,eq); queda=Math.max(queda,1-eq/pico); curva.push(eq); });
+  const bhT = S.reduce((s,x)=>s*(1+x.bh),1)-1, ganhoB = g.reduce((s,x)=>s+x.r,0), perdaB = -p.reduce((s,x)=>s+x.r,0);
+  const esp = pos.length ? mean(pos.map(x=>x.r)) : 0, sd = pos.length>2 ? std(pos.map(x=>x.r)) : 0;
+  return {S, dias:S.length, diasPos:pos.length, ganho: g.length? valor*mean(g.map(x=>x.r)) : 0, perda: p.length? valor*mean(p.map(x=>x.r)) : 0,
+    acerto: (g.length+p.length)? g.length/(g.length+p.length) : NaN, esp: valor*esp, t: sd>0 ? esp/(sd/Math.sqrt(pos.length)) : 0,
+    fl: perdaB>0 ? ganhoB/perdaB : Infinity, queda, total: eq-1, bhT, curva, de:S[0].d, ate:S[S.length-1].d};
+}
+function botSpark(curva){
+  const W=170, H=46, mn=Math.min(...curva), mx=Math.max(...curva), k = mx>mn ? (H-4)/(mx-mn) : 0;
+  const pts = curva.map((v,i)=>`${(i/(curva.length-1)*W).toFixed(1)},${(H-2-(v-mn)*k).toFixed(1)}`).join(" ");
+  const cor = curva[curva.length-1] >= 1 ? "var(--up)" : "var(--dn)";
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><line x1="0" x2="${W}" y1="${(H-2-(1-mn)*k).toFixed(1)}" y2="${(H-2-(1-mn)*k).toFixed(1)}" stroke="var(--line2)" stroke-dasharray="3 3"/><polyline fill="none" stroke="${cor}" stroke-width="1.6" points="${pts}"/></svg>`;
+}
+function botAoVivo(cls, cfg, valor){
+  if(!cfg || !cfg.on) return null; const d0 = dayKey(Math.floor(cfg.since/1000));
+  const S = botSerie(cls).filter(x=>x.d > d0); const tot = S.reduce((s,x)=>s*(1+x.r),1)-1;
+  return {dias:S.length, rs: valor*tot, pct: tot, bh: S.reduce((s,x)=>s*(1+x.bh),1)-1};
+}
+function renderBots(){
+  const el = $("#trBots"); if(!el) return; DB.bots = DB.bots || {};
+  const linha = (k,v,cls="") => `<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${k}</span><b class="${cls}" style="white-space:nowrap;text-align:right">${v}</b></div>`;
+  el.innerHTML = BOTS.map(b=>{
+    const cfg = DB.bots[b.cls] || {valor:1000}; const V = cfg.valor || 1000; const st = botStats(b.cls, V);
+    if(!st) return `<div class="card"><h3 style="text-transform:none;letter-spacing:0;font-size:16px">${b.nome}</h3><p class="mut">Carregando candles diários…</p></div>`;
+    const viv = botAoVivo(b.cls, cfg, V);
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;gap:10px"><div><div style="font-size:17px;font-weight:600">${b.nome}</div><div class="mut" style="font-size:12px">${b.sub}</div></div>${botSpark(st.curva)}</div>
+      <div style="margin-top:10px;font-size:13px">
+        ${linha("Ganho médio (dias de alta)", "▲ "+brl(st.ganho)+"/dia", "up")}
+        ${linha("Perda média (dias de queda)", "▼ "+brl(st.perda)+"/dia", "dn")}
+        ${linha("Taxa de acerto (dias)", isFinite(st.acerto)? (st.acerto*100).toFixed(1).replace(".",",")+"%" : "—")}
+        ${linha("<b>Resultado esperado por dia posicionado</b>", (st.esp>=0?"+":"")+brl(st.esp), st.esp>=0?"up":"dn")}
+        ${linha("Fator de lucro (ganhos ÷ perdas)", isFinite(st.fl)? st.fl.toFixed(2).replace(".",",") : "—")}
+        ${linha("Maior queda da banca", pct(-st.queda,1), "dn")}
+        ${linha("No período: robô × segurar", `${pct(st.total,1)} × ${pct(st.bhT,1)}`)}
+        ${linha("Dias medidos (posicionado)", `${st.dias} (${st.diasPos})`)}
+        ${linha("Ao vivo", viv ? `${viv.rs>=0?"+":""}${brl(viv.rs)} em ${viv.dias} dia(s) · segurar ${pct(viv.bh,1)}` : "desligado", viv? (viv.rs>=0?"up":"dn") : "mut")}
+      </div>
+      <p class="note" style="margin:8px 0">${esc(b.teste)} Dados de ${fmtDay(st.de*86400000)} a ${fmtDay(st.ate*86400000)}, custo de ${(CLASSES[b.cls].cost*100).toFixed(1).replace(".",",")}% por ida e volta já descontado. Selo do teste: ${seloBadge({c:b.selo})}</p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn sm" data-botv="${b.cls}|-">−</button><input type="number" min="50" step="50" value="${V}" data-botin="${b.cls}" style="width:100px;text-align:center"><button class="btn sm" data-botv="${b.cls}|+">+</button>
+        <span class="mut" style="font-size:12px">R$ na simulação</span><span class="sp" style="flex:1"></span>
+        <button class="btn ${cfg.on?"":"pri"}" data-boton="${b.cls}">${cfg.on? "Desativar robô" : "Ativar robô (simulação)"}</button>
+      </div>
+      ${cfg.on? `<p class="mut" style="font-size:11px;margin:6px 0 0">Ativado em ${fmtDate(cfg.since)}. Nenhuma ordem é enviada.</p>`:""}
+    </div>`; }).join("");
+  const setV = (cls, v) => { DB.bots[cls] = {...(DB.bots[cls]||{}), valor: Math.max(50, Math.round(v))}; save(); renderBots(); };
+  el.querySelectorAll("[data-botv]").forEach(b=>b.onclick=()=>{ const [c,op]=b.dataset.botv.split("|"); const v=(DB.bots[c]||{}).valor||1000; setV(c, op==="+"? v+(v>=1000?500:50) : v-(v>1000?500:50)); });
+  el.querySelectorAll("[data-botin]").forEach(i=>i.onchange=()=>setV(i.dataset.botin, +i.value||1000));
+  el.querySelectorAll("[data-boton]").forEach(b=>b.onclick=()=>{ const c=b.dataset.boton, cfg=DB.bots[c]||{valor:1000}; DB.bots[c] = cfg.on? {...cfg, on:false} : {...cfg, on:true, since:Date.now()}; save(); renderBots(); toast(DB.bots[c].on? "Robô ativado na simulação. O placar ao vivo começa a contar a partir de amanhã." : "Robô desativado."); });
+}
+function botsMarkdown(){
+  return BOTS.map(b=>{ const cfg=(DB.bots||{})[b.cls]||{valor:1000}; const st=botStats(b.cls, cfg.valor||1000); if(!st) return `| ${b.nome} | — | — | — | — | — | — |`; const v=botAoVivo(b.cls,cfg,cfg.valor||1000);
+    return `| ${b.nome} | ${brl(st.ganho)} / ${brl(st.perda)} | ${(st.acerto*100).toFixed(1)}% | ${brl(st.esp)} | ${pct(-st.queda,1)} | ${pct(st.total,1)} × ${pct(st.bhT,1)} | ${v? `${brl(v.rs)} em ${v.dias} dia(s) desde ${fmtDay(cfg.since)}` : "desligado"} |`; }).join("\n");
 }
 let TR_SUG = null;
 async function trSugestoes(){
