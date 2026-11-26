@@ -1,0 +1,27 @@
+{
+  "vault": "C:\\Users\\luisf\\Documents\\MF Tracker",
+  "intervalo_segundos": 300,
+  "nota_intervalo_minutos": 60,
+  "cripto": {
+    "exchanges": ["binance", "coinbaseexchange"],
+    "ativos": {"BTC": "BTC", "ETH": "ETH", "SOL": "SOL", "XRP": "XRP"}
+  },
+  "memecoins": {"DOGE": "DOGE", "SHIB": "SHIB", "PEPE": "PEPE", "BONK": "BONK", "WIF": "WIF"},
+  "dex": [
+    {"ativo": "DUH", "rede": "solana", "contrato": "ngwxpGYdkauMcxLFrNTKp8qBgK7JV53zVvd7F2spump", "pool": "3iGr3kuNGVheD9HAdx4hc4y9PhhJuNCi2GawTpT2jra6"}
+  ],
+  "yahoo": {
+    "PETR4": {"ticker": "PETR4.SA", "classe": "b3", "moeda": "BRL"},
+    "VALE3": {"ticker": "VALE3.SA", "classe": "b3", "moeda": "BRL"},
+    "ITUB4": {"ticker": "ITUB4.SA", "classe": "b3", "moeda": "BRL"},
+    "MGLU3": {"ticker": "MGLU3.SA", "classe": "b3", "moeda": "BRL"},
+    "IBOV": {"ticker": "^BVSP", "classe": "b3", "moeda": "BRL"},
+    "AAPL": {"ticker": "AAPL", "classe": "bolsa-eua", "moeda": "USD"},
+    "QQQ": {"ticker": "QQQ", "classe": "bolsa-eua", "moeda": "USD"},
+    "S&P 500": {"ticker": "^GSPC", "classe": "bolsa-eua", "moeda": "USD"},
+    "Nasdaq 100": {"ticker": "^NDX", "classe": "bolsa-eua", "moeda": "USD"}
+  },
+  "notas": {"BTC": "BTC", "ETH": "ETH", "SOL": "SOL", "XRP": "XRP", "DOGE": "DOGE", "SHIB": "SHIB", "PEPE": "PEPE", "DUH": "DUH",
+            "PETR4": "PETR4", "VALE3": "VALE3", "ITUB4": "ITUB4", "MGLU3": "MGLU3", "USD-BRL": "USD-BRL", "AAPL": "AAPL",
+            "S&P 500": "S&P 500", "Nasdaq 100": "Nasdaq 100"}
+}

@@ -1,0 +1,1305 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MF Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<!-- chaves pessoais: arquivo só no PC, fora do Git (veja .gitignore) -->
+<script src="chaves.local.js"></script>
+<style>
+:root{
+  --bg:#0a0d13; --bg2:#0f131b; --panel:#121823; --panel2:#171e2b; --line:#222b3a; --line2:#2c3748;
+  --tx:#e7eaf0; --tx2:#a9b2c3; --mut:#7a8497; --up:#26c281; --upbg:rgba(38,194,129,.12); --dn:#f0516a; --dnbg:rgba(240,81,106,.12);
+  --ac:#5b8cff; --acbg:rgba(91,140,255,.13); --wr:#f2b14a; --wrbg:rgba(242,177,74,.12); --vio:#a682ff;
+  --r:10px; --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.45 Inter,system-ui,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+a{color:var(--ac);text-decoration:none} a:hover{text-decoration:underline}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .dn{color:var(--dn)} .mut{color:var(--mut)} .wr{color:var(--wr)}
+/* top bar */
+.top{display:flex;align-items:center;gap:18px;height:56px;padding:0 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0e131c,#0b0f16);position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px;font-size:16px;white-space:nowrap}
+.tab{white-space:nowrap}
+@media (max-width:1500px){.brand small{display:none}}
+@media (max-width:1280px){.feeds span{font-size:0}.feeds .dot{margin-right:0}}
+.logo{width:28px;height:28px;border-radius:8px;background:conic-gradient(from 200deg,#5b8cff,#a682ff,#26c281,#5b8cff);display:grid;place-items:center}
+.logo::after{content:"";width:12px;height:12px;border-radius:3px;background:var(--bg)}
+.brand small{font-weight:500;color:var(--mut);font-size:11px;border:1px solid var(--line2);border-radius:20px;padding:1px 8px;margin-left:4px}
+.tabs{display:flex;gap:2px;margin-left:12px}
+.tab{background:none;border:0;padding:8px 13px;border-radius:8px;color:var(--tx2);cursor:pointer;font-weight:500}
+.tab:hover{background:var(--panel)} .tab.on{background:var(--panel2);color:var(--tx);box-shadow:inset 0 0 0 1px var(--line2)}
+.tab .cnt{font-family:var(--mono);font-size:11px;background:var(--acbg);color:var(--ac);border-radius:10px;padding:0 6px;margin-left:5px}
+.sp{flex:1}
+.feeds{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--mut)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;background:var(--mut)}
+.dot.ok{background:var(--up);box-shadow:0 0 0 3px rgba(38,194,129,.15)} .dot.err{background:var(--dn)} .dot.wait{background:var(--wr)}
+.clock{font-family:var(--mono);font-size:12px;color:var(--tx2)}
+/* layout */
+.wrap{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 56px)}
+.side{border-right:1px solid var(--line);overflow:auto;background:var(--bg2)}
+.main{overflow:auto;padding:18px 20px 40px}
+.grp{padding:12px 14px 4px;font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:var(--mut);display:flex;justify-content:space-between}
+.asset{display:grid;grid-template-columns:1fr 64px 86px;gap:8px;align-items:center;padding:9px 14px;cursor:pointer;border-left:2px solid transparent}
+.asset:hover{background:var(--panel)} .asset.on{background:var(--panel2);border-left-color:var(--ac)}
+.asset .nm{font-weight:600} .asset .sub{font-size:11px;color:var(--mut)}
+.asset .px{text-align:right;font-family:var(--mono);font-size:12.5px}
+.asset .ch{font-size:11px}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;border-radius:5px;padding:1px 6px;letter-spacing:.3px}
+.b-up{background:var(--upbg);color:var(--up)} .b-dn{background:var(--dnbg);color:var(--dn)} .b-n{background:#1b2230;color:var(--mut)} .b-wr{background:var(--wrbg);color:var(--wr)} .b-ac{background:var(--acbg);color:var(--ac)}
+/* cards */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card h3{margin:0 0 12px;font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut);font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.row{display:grid;gap:14px}
+.hdr{display:flex;align-items:flex-end;gap:18px;margin-bottom:14px;flex-wrap:wrap}
+.hdr .t{font-size:24px;font-weight:700;letter-spacing:-.3px}
+.hdr .p{font-family:var(--mono);font-size:26px;font-weight:600}
+.hdr .meta{color:var(--mut);font-size:12px}
+#chart{height:390px;border-radius:8px;overflow:hidden}
+.g2{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin-top:14px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi .l{font-size:11.5px;color:var(--mut)} .kpi .v{font-family:var(--mono);font-size:22px;font-weight:600;margin-top:2px} .kpi .s{font-size:11.5px;color:var(--mut);margin-top:2px}
+/* factors */
+.fac{display:grid;grid-template-columns:132px 1fr 52px;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.fac:last-child{border-bottom:0}
+.fac .n{font-size:12.5px} .fac .n small{display:block;color:var(--mut);font-size:10.5px}
+.bar{position:relative;height:8px;background:#1a2130;border-radius:4px}
+.bar::before{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line2)}
+.bar i{position:absolute;top:0;bottom:0;border-radius:4px}
+.fac .v{text-align:right;font-family:var(--mono);font-size:12px}
+/* opportunity */
+.opp{border-radius:var(--r);padding:16px;border:1px solid var(--line2);background:linear-gradient(160deg,var(--panel2),var(--panel))}
+.opp.long{border-color:rgba(38,194,129,.45);box-shadow:0 0 0 1px rgba(38,194,129,.12),0 10px 30px -18px rgba(38,194,129,.5)}
+.opp.short{border-color:rgba(240,81,106,.45);box-shadow:0 0 0 1px rgba(240,81,106,.12),0 10px 30px -18px rgba(240,81,106,.5)}
+.opp .big{font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 14px;margin-top:12px;font-size:13px}
+.kv div:nth-child(odd){color:var(--tx2)} .kv div:nth-child(even){text-align:right;font-family:var(--mono)}
+.prob{height:10px;border-radius:5px;background:#1a2130;overflow:hidden;margin-top:6px;position:relative}
+.prob i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--ac),var(--vio))}
+.prob b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--wr)}
+.note{font-size:12px;color:var(--mut);margin-top:10px;line-height:1.5}
+.btn{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:500;font-size:13px}
+.btn:hover{border-color:var(--ac)} .btn.pri{background:var(--ac);border-color:var(--ac);color:#fff} .btn.sm{padding:4px 9px;font-size:12px}
+/* news */
+.news{display:flex;flex-direction:column;gap:0}
+.ni{display:grid;grid-template-columns:44px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.ni:last-child{border-bottom:0}
+.ni .s{font-family:var(--mono);font-size:11px;text-align:center;border-radius:6px;padding:3px 0;height:fit-content}
+.ni .tt{font-size:13px;line-height:1.35} .ni .src{font-size:11px;color:var(--mut);margin-top:2px}
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-weight:600;color:var(--mut);font-size:11px;letter-spacing:.6px;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line2);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.clk{cursor:pointer} tr.clk:hover td{background:var(--panel2)}
+td.n{font-family:var(--mono);text-align:right;white-space:nowrap} td:first-child{white-space:nowrap} th.n{text-align:right}
+.lesson{font-size:12.5px;color:var(--tx2);margin:4px 0;padding-left:14px;position:relative}
+.lesson::before{content:"›";position:absolute;left:2px;color:var(--ac)}
+.empty{padding:28px;text-align:center;color:var(--mut)}
+.view{display:none} .view.on{display:block}
+.pill{display:inline-block;border:1px solid var(--line2);border-radius:20px;padding:2px 9px;font-size:11.5px;color:var(--tx2);margin:2px 4px 2px 0}
+input,select{background:var(--bg2);border:1px solid var(--line2);color:var(--tx);border-radius:7px;padding:7px 9px;font:inherit;font-size:13px}
+label.f{display:block;font-size:12px;color:var(--tx2);margin:10px 0 4px}
+.method p,.method li{color:var(--tx2);font-size:13.5px;line-height:1.6}
+.method h4{margin:18px 0 6px;font-size:14px}
+.banner{background:var(--wrbg);border:1px solid rgba(242,177,74,.35);color:#f6cf8a;border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:14px}
+.drawer{position:fixed;inset:0;background:rgba(5,7,11,.6);display:none;z-index:50}
+.drawer.on{display:block}
+.drawer .in{position:absolute;right:0;top:0;bottom:0;width:min(620px,100%);background:var(--bg2);border-left:1px solid var(--line2);overflow:auto;padding:22px}
+svg.spark{display:block}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:12px 14px;max-width:360px;font-size:13px;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none}
+@media (max-width:1100px){.g2{grid-template-columns:1fr}.g4{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:820px){.wrap{grid-template-columns:1fr;height:auto}.side{max-height:300px}.feeds{display:none}.tabs{overflow:auto}.g3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><div class="logo"></div>MF Tracker <small>simulação · sem dinheiro real</small></div>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-v="painel">Painel</button>
+    <button class="tab" data-v="oport">Oportunidades <span class="cnt" id="cntOpen">0</span></button>
+    <button class="tab" data-v="desemp">Desempenho</button>
+    <button class="tab" data-v="radar">Radar memecoins</button>
+    <button class="tab" data-v="noticias">Notícias</button>
+    <button class="tab" data-v="metodo">Metodologia</button>
+    <button class="tab" data-v="config">Configurações</button>
+  </div>
+  <div class="sp"></div>
+  <div class="feeds" id="feeds"></div>
+  <div class="clock" id="clock"></div>
+</div>
+<div class="wrap">
+  <aside class="side" id="side"></aside>
+  <main class="main">
+    <!-- PAINEL -->
+    <section class="view on" id="v-painel">
+      <div class="hdr">
+        <div><div class="t" id="aName">—</div><div class="meta" id="aMeta"></div></div>
+        <div class="p" id="aPrice">—</div>
+        <div id="aChg" class="mono"></div>
+        <div class="sp"></div>
+        <div class="meta" id="aFresh"></div>
+      </div>
+      <div class="card" style="padding:8px"><div id="chart"></div></div>
+      <div class="g2">
+        <div class="card"><h3>Fatores de análise <span class="mut" id="scoreTxt" style="text-transform:none;letter-spacing:0"></span></h3><div id="factors"></div></div>
+        <div id="oppBox"></div>
+      </div>
+      <div class="g2">
+        <div class="card"><h3>Notícias ligadas ao ativo <span class="mut" style="text-transform:none;letter-spacing:0" id="newsAssetInfo"></span></h3><div class="news" id="newsAsset"></div></div>
+        <div class="card"><h3>Contexto global e psicologia</h3><div id="ctxBox"></div></div>
+      </div>
+    </section>
+    <!-- OPORTUNIDADES -->
+    <section class="view" id="v-oport">
+      <div class="banner">Cada oportunidade é registrada automaticamente no momento em que aparece, com valor simulado, retorno possível, prazo e chance. Nenhuma ordem é enviada a corretoras. No vencimento, o MF Tracker avalia sozinho o resultado e registra as lições.</div>
+      <div class="card" style="margin-bottom:14px"><h3>Vault do Obsidian <span><button class="btn sm" id="btnVaultMd">Baixar notas .md</button> <button class="btn sm pri" id="btnVault">Conectar vault do Obsidian</button></span></h3><div class="note" style="margin:0" id="vaultStatus"></div></div>
+      <div class="card"><h3>Em aberto <span><button class="btn sm" id="btnEval">Avaliar vencidas agora</button></span></h3><div id="openTbl"></div></div>
+      <div class="card" style="margin-top:14px"><h3>Encerradas</h3><div id="closedTbl"></div></div>
+    </section>
+    <!-- DESEMPENHO -->
+    <section class="view" id="v-desemp">
+      <div class="g4" id="kpis"></div>
+      <div class="g2">
+        <div class="card"><h3>Retorno acumulado por banca (%)</h3><div id="equity" style="height:240px"></div></div>
+        <div class="card"><h3>Calibração: chance prevista × acerto real</h3><div id="calib"></div></div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3>Bancas simuladas</h3><div id="banksTbl"></div></div>
+      <div class="g2">
+        <div class="card"><h3>Peso aprendido de cada fator</h3><div id="weights"></div></div>
+        <div class="card"><h3>Desempenho por classe e ativo</h3><div id="byAsset"></div></div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3>Autoanálise do modelo</h3><div id="selfAn"></div></div>
+    </section>
+    <!-- RADAR -->
+    <section class="view" id="v-radar">
+      <div class="banner">Memecoins novas são o mercado mais arriscado que existe: a maioria perde quase todo o valor, muitas são golpes ("rug pull") e existem imitações com o mesmo nome. Confira sempre o <b>contrato</b>, não o nome. O radar mostra onde está a atenção do mercado e mede, com o tempo, se isso ajuda a prever alguma coisa.</div>
+      <div class="card"><h3>Moedas em destaque agora <span class="mut" id="radarInfo" style="text-transform:none;letter-spacing:0"></span></h3>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:13px"><label><input type="checkbox" id="rdCheap" checked> só preço abaixo de US$ 0,01</label><label><input type="checkbox" id="rdLiq" checked> só liquidez de US$ 10 mil ou mais</label><span class="sp"></span><input id="rdAddr" placeholder="acompanhar por contrato (cole o endereço)" style="min-width:280px"><button class="btn sm" id="rdAddBtn">Acompanhar</button></div>
+        <div id="radarTbl"></div></div>
+      <div class="g2"><div class="card"><h3>O radar acerta?</h3><div id="radarTrack"></div></div>
+      <div class="card"><h3>Como ler</h3><p class="note" style="margin-top:0"><b>Atenção</b> (0–100): giro do volume sobre o valor de mercado, proporção de compras, alta nas últimas 6 horas sem exaustão, liquidez suficiente e presença em mais de uma lista. <b>Risco</b> (0–100): idade, liquidez, compras × vendas, alta já esticada e nomes duplicados. Ao clicar em <b>Acompanhar</b>, a moeda entra no painel com candles por hora, e o modelo passa a registrar previsões de 6, 24 e 72 horas para ela, testadas no histórico dela própria.</p></div></div>
+    </section>
+    <!-- NOTICIAS -->
+    <section class="view" id="v-noticias">
+      <div class="card"><h3>Fluxo de notícias com sentimento <span class="mut" id="newsInfo" style="text-transform:none;letter-spacing:0"></span></h3><div class="news" id="newsAll"></div></div>
+    </section>
+    <!-- METODOLOGIA -->
+    <section class="view method" id="v-metodo"><div class="card" id="methodBox"></div></section>
+    <!-- CONFIG -->
+    <section class="view" id="v-config">
+      <div class="g2" style="margin-top:0">
+        <div class="card"><h3>Simulação</h3>
+          <label class="f">Bancas simuladas em paralelo (R$, separadas por vírgula)</label><input id="cfgBanks" style="width:100%">
+          <label class="f">Chance mínima para registrar oportunidade (%)</label><input id="cfgMinP" type="number" min="50" max="90" step="1">
+          <label class="f">Vantagem mínima sobre a taxa base (pontos %)</label><input id="cfgMinEdge" type="number" min="0" max="20" step="0.5">
+          <label class="f">Fração de Kelly usada no tamanho da posição</label><input id="cfgKelly" type="number" min="0.05" max="1" step="0.05">
+          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="cfgSave">Salvar</button></div>
+        </div>
+        <div class="card"><h3>Chaves gratuitas (ampliam os mercados)</h3>
+          <label class="f">Token brapi.dev (B3: libera qualquer ação, além de PETR4, VALE3, ITUB4, MGLU3)</label><input id="cfgBrapi" placeholder="opcional" style="width:100%">
+          <label class="f">Ações extras da B3 (separadas por vírgula, exige token)</label><input id="cfgB3x" placeholder="ex.: BBAS3, WEGE3, BOVA11" style="width:100%">
+          <label class="f">Chave Twelve Data (bolsa americana: sem chave só AAPL e QQQ)</label><input id="cfgTwelve" placeholder="opcional" style="width:100%">
+          <label class="f">Ações americanas extras (exige chave)</label><input id="cfgUSx" placeholder="ex.: MSFT, NVDA, SPY, TSLA, AMZN" style="width:100%">
+          <p class="note">As chaves ficam só neste navegador. Depois de salvar, a página recarrega os mercados.</p>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3>Seus dados</h3>
+        <p class="note" style="margin-top:0">O diário fica guardado no navegador. Limpar os dados do navegador apaga tudo, então exporte um backup de vez em quando.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="btnExport">Exportar backup (.json)</button><label class="btn">Importar backup<input type="file" id="fileImport" accept=".json" style="display:none"></label><button class="btn" id="btnResetW">Zerar pesos aprendidos</button></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="drawer" id="drawer"><div class="in" id="drawerIn"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   MF Tracker v0.1 — motor de análise + diário de simulações
+   Tudo roda no navegador. Fontes reais, sem dados inventados.
+   ============================================================ */
+const VERSION = "0.2.0";
+const DAY = 86400000;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const clip = (x, a=-1, b=1) => Math.max(a, Math.min(b, x));
+const tanh = Math.tanh;
+const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : NaN;
+const median = a => { if(!a.length) return NaN; const s=[...a].sort((x,y)=>x-y), m=s.length>>1; return s.length%2? s[m] : (s[m-1]+s[m])/2; };
+const std = a => { const m=mean(a); return Math.sqrt(mean(a.map(x=>(x-m)**2))); };
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const pct = (x,d=2) => (x>=0?"+":"")+(x*100).toFixed(d)+"%";
+const brl = x => (x<0?"-":"")+"R$ "+Math.abs(x).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+function fmtPx(x, cur){ if(x==null||!isFinite(x)) return "—"; const d = x>=1000?2: x>=1?2: x>=0.01?4: 8; const s = x.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d}); return (cur==="BRL"?"R$ ":cur==="USD"?"US$ ":"")+s; }
+const fmtDate = ms => new Date(ms).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});
+const fmtDay = ms => new Date(ms).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo",day:"2-digit",month:"2-digit"});
+
+/* ---------------- Armazenamento ---------------- */
+const STORE_KEY = "mftracker.v1";
+const DEFAULT_W = {tendencia:1.2, momento:1.0, rsi:0.8, bollinger:0.6, volume:0.5, psicologia:0.8, nicho:0.6, noticias:0.7, macro:0.5};
+const DEFAULT_SETTINGS = {banks:[50,100,300,500,1000,2500,5000,10000], minP:55, minEdge:2, kelly:0.25, brapiToken:"", b3Extra:"", twelveKey:"", usExtra:"",
+  dexWatch:[{sym:"DUH", name:"duh (Solana, pump.fun)", chain:"solana", pool:"3iGr3kuNGVheD9HAdx4hc4y9PhhJuNCi2GawTpT2jra6", token:"ngwxpGYdkauMcxLFrNTKp8qBgK7JV53zVvd7F2spump"}]};
+let DB = load();
+(function applyLocalKeys(){ // preenche chaves vindas de chaves.local.js, sem sobrescrever o que já foi digitado
+  const K = window.MF_KEYS; if(!K) return; let ch=false;
+  for(const k of ["brapiToken","twelveKey","b3Extra","usExtra"]) if(K[k] && !DB.settings[k]){ DB.settings[k]=K[k]; ch=true; }
+  if(ch) save();
+})();
+function load(){
+  try{ const raw = localStorage.getItem(STORE_KEY); if(raw){ const d = JSON.parse(raw); d.settings = {...DEFAULT_SETTINGS, ...(d.settings||{})}; d.weights = {...DEFAULT_W, ...(d.weights||{})}; d.journal = d.journal||[]; d.cache = d.cache||{}; return d; } }catch(e){ console.warn(e); }
+  return {version:VERSION, settings:{...DEFAULT_SETTINGS}, weights:{...DEFAULT_W}, journal:[], cache:{}};
+}
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){ toast("Não consegui salvar no navegador: "+e.message); } }
+
+/* ---------------- Universo de ativos ---------------- */
+const CLASSES = {
+  crypto:{label:"Cripto", cost:0.003, cal:1},
+  meme:{label:"Memecoins", cost:0.006, cal:1},
+  b3:{label:"B3 · Ações Brasil", cost:0.001, cal:7/5},
+  us:{label:"EUA · Nasdaq/NYSE", cost:0.001, cal:7/5},
+  fx:{label:"Câmbio", cost:0.005, cal:7/5},
+  dex:{label:"Memecoins novas (DEX)", cost:0.01, cal:1},
+};
+/* custo fixo de ida e volta e valor mínimo por ordem, em R$ (aproximações declaradas) */
+const FIXED = {crypto:0, meme:0, b3:0, us:0, fx:0, dex:0.6};
+const MIN_TICKET = {crypto:10, meme:10, b3:null /* 1 ação */, us:10, fx:50, dex:5};
+const tfOf = a => a.tf || 86400;
+const bk = (a, sec) => Math.floor(sec/tfOf(a));
+const hzOf = a => tfOf(a)===3600 ? [6,24,72] : [3,7,14];
+const unitOf = x => (x.tf||86400)===3600 ? "horas" : (x.cls==="crypto"||x.cls==="meme") ? "dias" : "pregões";
+const KW = {
+  BTC:[/\bbitcoin\b/i,/\bbtc\b/i], ETH:[/\bethereum\b/i,/\bether\b/i,/\beth\b/i], SOL:[/\bsolana\b/i,/\bsol\b(?!ar)/i], XRP:[/\bxrp\b/i,/\bripple\b/i],
+  DOGE:[/\bdogecoin\b/i,/\bdoge\b/i], SHIB:[/\bshiba\b/i,/\bshib\b/i], PEPE:[/\bpepe\b/i], BONK:[/\bbonk\b/i], WIF:[/\bdogwifhat\b/i,/\bwif\b/i],
+  PETR4:[/\bpetrobras\b/i,/\bpetr[34]\b/i,/\bpetróleo\b/i,/\bbrent\b/i], VALE3:[/\bVale\b(?! a pena| do| da| dos| das)/,/\bvale3\b/i,/\bminério\b/i,/\biron ore\b/i],
+  ITUB4:[/\bita[uú]\b/i,/\bitub4\b/i,/\bbancos?\b/i], MGLU3:[/\bmagazine luiza\b/i,/\bmagalu\b/i,/\bmglu3\b/i,/\bvarejo\b/i],
+  AAPL:[/\bapple\b/i,/\baapl\b/i,/\biphone\b/i], QQQ:[/\bnasdaq\b/i,/\bqqq\b/i,/\bbig techs?\b/i], MSFT:[/\bmicrosoft\b/i,/\bmsft\b/i], NVDA:[/\bnvidia\b/i,/\bnvda\b/i], SPY:[/\bs&p ?500\b/i,/\bspy\b/i,/\bwall street\b/i], TSLA:[/\btesla\b/i,/\btsla\b/i,/\bmusk\b/i], AMZN:[/\bamazon\b/i,/\bamzn\b/i],
+  "USD-BRL":[/\bdólar\b/i,/\bc[âa]mbio\b/i,/\bcopom\b/i,/\bfed\b/i,/\bselic\b/i],
+};
+const CLASS_KW = { dex:[/\bmemecoins?\b/i,/\bpump\.?fun\b/i,/\bsolana\b/i], crypto:[/\bcripto/i,/\bcrypto/i], meme:[/\bmemecoins?\b/i,/\bmeme coins?\b/i,/\bcripto/i,/\bcrypto/i], b3:[/\bibovespa\b/i,/\bbolsa\b/i,/\bb3\b/i], us:[/\bwall street\b/i,/\bnasdaq\b/i,/\bs&p\b/i,/\bfed\b/i], fx:[/\bdólar\b/i] };
+function buildAssets(){
+  const s = DB.settings, A = [];
+  const add = (sym,name,cls,src,cur,extra={}) => A.push({sym,name,cls,src,cur,tf:86400,candles:[],live:null,liveAt:0,ind:null,analysis:null,err:null,...extra});
+  [["BTC","Bitcoin"],["ETH","Ethereum"],["SOL","Solana"],["XRP","XRP"]].forEach(([k,n])=>add(k,n,"crypto","coinbase","USD",{pid:k+"-USD"}));
+  [["DOGE","Dogecoin"],["SHIB","Shiba Inu"],["PEPE","Pepe"],["BONK","Bonk"],["WIF","dogwifhat"]].forEach(([k,n])=>add(k,n,"meme","coinbase","USD",{pid:k+"-USD"}));
+  const b3 = ["PETR4","VALE3","ITUB4","MGLU3"]; if(s.brapiToken) s.b3Extra.split(/[,\s]+/).map(x=>x.trim().toUpperCase()).filter(Boolean).forEach(x=>{ if(!b3.includes(x)) b3.push(x); });
+  const b3n = {PETR4:"Petrobras PN",VALE3:"Vale ON",ITUB4:"Itaú Unibanco PN",MGLU3:"Magazine Luiza ON"};
+  b3.forEach(k=>add(k,b3n[k]||k,"b3","brapi","BRL"));
+  const us = ["AAPL","QQQ"]; if(s.twelveKey) s.usExtra.split(/[,\s]+/).map(x=>x.trim().toUpperCase()).filter(Boolean).forEach(x=>{ if(!us.includes(x)) us.push(x); });
+  const usn = {AAPL:"Apple",QQQ:"Nasdaq-100 (ETF QQQ)",MSFT:"Microsoft",NVDA:"Nvidia",SPY:"S&P 500 (ETF SPY)",TSLA:"Tesla",AMZN:"Amazon"};
+  us.forEach(k=>add(k,usn[k]||k,"us","twelve","USD"));
+  add("USD-BRL","Dólar / Real","fx","awesome","BRL");
+  (s.dexWatch||[]).forEach(w=>{ if(!A.some(x=>x.sym===w.sym)) add(w.sym, w.name, "dex", "gecko", "USD", {tf:3600, chain:w.chain, pool:w.pool, token:w.token}); });
+  return A;
+}
+let ASSETS = buildAssets();
+let SEL = "BTC";
+const CTX = {fng:null, fngHist:{}, global:null, usdbrl:null, selic:null};
+const FEED = {}; // status por fonte
+function feedOk(k){ FEED[k] = {ok:true, at:Date.now()}; renderFeeds(); }
+function feedErr(k,e){ FEED[k] = {ok:false, at:Date.now(), e:String(e&&e.message||e)}; renderFeeds(); }
+
+/* ---------------- Acesso a dados (fontes reais) ---------------- */
+async function getJSON(url, opt={}){
+  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), opt.timeout||15000);
+  try{ const r = await fetch(url,{signal:ctl.signal}); const txt = await r.text(); let j; try{ j = JSON.parse(txt); }catch(e){ throw new Error("HTTP "+r.status+" resposta inválida"); }
+    if(!r.ok) throw new Error((j && (j.message||j.error)) || ("HTTP "+r.status)); return j; }
+  finally{ clearTimeout(t); }
+}
+const dayKey = sec => Math.floor(sec/86400);
+async function loadCoinbase(a){
+  const j = await getJSON(`https://api.exchange.coinbase.com/products/${a.pid}/candles?granularity=86400`);
+  // [time, low, high, open, close, volume] — mais recente primeiro
+  a.candles = j.map(r=>({t:r[0], o:+r[3], h:+r[2], l:+r[1], c:+r[4], v:+r[5]})).sort((x,y)=>x.t-y.t);
+}
+async function liveCoinbase(a){
+  const j = await getJSON(`https://api.exchange.coinbase.com/products/${a.pid}/ticker`);
+  a.live = +j.price; a.liveAt = Date.parse(j.time)||Date.now(); mergeLive(a);
+}
+let brapiBusy = Promise.resolve();
+function brapiCall(url){ // brapi limita requisições simultâneas: serializa
+  const p = brapiBusy.then(()=>getJSON(url)); brapiBusy = p.catch(()=>{}).then(()=>sleep(400)); return p;
+}
+async function loadBrapi(list, withHist){
+  const tok = DB.settings.brapiToken ? "&token="+encodeURIComponent(DB.settings.brapiToken) : "";
+  const syms = list.map(a=>a.sym);
+  const chunks = []; for(let i=0;i<syms.length;i+=4) chunks.push(syms.slice(i,i+4)); // plano grátis: até 4 por chamada
+  for(const ch of chunks){
+    const j = await brapiCall(`https://brapi.dev/api/quote/${ch.join(",")}?${withHist?"range=1y&interval=1d":"range=1d&interval=1d"}${tok}`);
+    for(const r of (j.results||[])){
+      const a = list.find(x=>x.sym===r.symbol); if(!a) continue;
+      if(withHist && r.historicalDataPrice) a.candles = r.historicalDataPrice.filter(h=>h.close!=null).map(h=>({t:h.date,o:h.open,h:h.high,l:h.low,c:h.close,v:h.volume||0})).sort((x,y)=>x.t-y.t);
+      if(r.regularMarketPrice!=null){ a.live = r.regularMarketPrice; a.liveAt = Date.parse(r.regularMarketTime)||Date.now(); a.name = a.name===a.sym ? (r.longName||r.shortName||a.sym) : a.name; mergeLive(a); }
+    }
+  }
+}
+let twelveQ = Promise.resolve();
+function twelveCall(url){ // plano grátis: 8 chamadas/minuto
+  const p = twelveQ.then(()=>getJSON(url)); twelveQ = p.catch(()=>{}).then(()=>sleep(8000)); return p;
+}
+async function loadTwelve(a){
+  const key = DB.settings.twelveKey || "demo";
+  const j = await twelveCall(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(a.sym)}&interval=1day&outputsize=300&apikey=${encodeURIComponent(key)}`);
+  if(j.status==="error") throw new Error(j.message);
+  a.candles = j.values.map(v=>({t:Math.floor(Date.parse(v.datetime+"T14:30:00Z")/1000), o:+v.open,h:+v.high,l:+v.low,c:+v.close,v:+v.volume||0})).sort((x,y)=>x.t-y.t);
+}
+async function liveTwelve(a){
+  const key = DB.settings.twelveKey || "demo";
+  const j = await twelveCall(`https://api.twelvedata.com/quote?symbol=${encodeURIComponent(a.sym)}&apikey=${encodeURIComponent(key)}`);
+  if(j.status==="error") throw new Error(j.message);
+  a.live = +j.close; a.liveAt = (j.last_quote_at||j.timestamp)*1000; mergeLive(a);
+}
+async function loadAwesome(a){
+  const j = await getJSON(`https://economia.awesomeapi.com.br/json/daily/USD-BRL/300`);
+  const rows = j.map(r=>({t:+r.timestamp, h:+r.high, l:+r.low, c:+r.bid})).sort((x,y)=>x.t-y.t);
+  // um registro por dia (fecha com o último do dia)
+  const byDay = new Map(); rows.forEach(r=>byDay.set(dayKey(r.t), r));
+  const arr = [...byDay.values()]; a.candles = arr.map((r,i)=>({t:r.t, o: i? arr[i-1].c : r.c, h:Math.max(r.h,r.c), l:Math.min(r.l,r.c), c:r.c, v:0}));
+}
+async function liveAwesome(a){
+  const j = await getJSON(`https://economia.awesomeapi.com.br/json/last/USD-BRL`); const r = j.USDBRL;
+  a.live = +r.bid; a.liveAt = (+r.timestamp)*1000; CTX.usdbrl = {bid:+r.bid, pct:+r.pctChange}; mergeLive(a);
+}
+const GT_NET = {solana:"solana", ethereum:"eth", base:"base", bsc:"bsc", arbitrum:"arbitrum", polygon:"polygon_pos"};
+const DS_CHAIN = {solana:"solana", eth:"ethereum", base:"base", bsc:"bsc", arbitrum:"arbitrum", polygon_pos:"polygon"};
+let gtQ = Promise.resolve();
+function gtCall(url){ const p = gtQ.then(()=>getJSON(url)); gtQ = p.catch(()=>{}).then(()=>sleep(2500)); return p; } // GeckoTerminal: 30/min
+async function loadGecko(a){
+  const j = await gtCall(`https://api.geckoterminal.com/api/v2/networks/${GT_NET[a.chain]||a.chain}/pools/${a.pool}/ohlcv/hour?aggregate=1&limit=1000&currency=usd`);
+  a.candles = j.data.attributes.ohlcv_list.map(r=>({t:r[0], o:+r[1], h:+r[2], l:+r[3], c:+r[4], v:+r[5]})).sort((x,y)=>x.t-y.t);
+}
+async function liveDex(list){
+  const byChain = {}; list.forEach(a=>{ (byChain[a.chain]=byChain[a.chain]||[]).push(a); });
+  for(const [chain, arr] of Object.entries(byChain)){
+    for(let i=0;i<arr.length;i+=30){
+      const part = arr.slice(i,i+30);
+      const j = await getJSON(`https://api.dexscreener.com/tokens/v1/${chain}/${part.map(a=>a.token).join(",")}`);
+      for(const a of part){
+        const pairs = (j||[]).filter(p=>p.baseToken && p.baseToken.address===a.token);
+        const pr = pairs.find(p=>p.pairAddress===a.pool) || pairs.sort((x,y)=>(y.liquidity?.usd||0)-(x.liquidity?.usd||0))[0];
+        if(!pr) continue;
+        a.live = +pr.priceUsd; a.liveAt = Date.now(); a.liq = pr.liquidity?.usd; a.mcap = pr.marketCap||pr.fdv; a.dex = {ch1:pr.priceChange?.h1, ch24:pr.priceChange?.h24, vol24:pr.volume?.h24, buys:pr.txns?.h24?.buys, sells:pr.txns?.h24?.sells, created:pr.pairCreatedAt, url:pr.url};
+        mergeLive(a);
+      }
+    }
+  }
+}
+function mergeLive(a){ // atualiza o candle do dia corrente com o preço ao vivo
+  if(!a.candles.length || a.live==null) return;
+  const last = a.candles[a.candles.length-1]; const nowSec = Math.floor(a.liveAt/1000);
+  if(a.cls==="crypto"||a.cls==="meme"||a.cls==="dex"){
+    if(bk(a,nowSec) > bk(a,last.t)) a.candles.push({t:bk(a,nowSec)*tfOf(a), o:last.c, h:a.live, l:a.live, c:a.live, v:0});
+    else { last.c = a.live; last.h = Math.max(last.h,a.live); last.l = Math.min(last.l,a.live); }
+  } else if(dayKey(nowSec) === dayKey(last.t)) { last.c = a.live; last.h = Math.max(last.h,a.live); last.l = Math.min(last.l,a.live); }
+}
+async function loadContext(){
+  try{ const j = await getJSON("https://api.alternative.me/fng/?limit=400"); CTX.fngHist = {}; j.data.forEach(d=>CTX.fngHist[dayKey(+d.timestamp)] = +d.value); CTX.fng = {v:+j.data[0].value, cls:j.data[0].value_classification, prev:+j.data[1].value}; feedOk("fng"); }catch(e){ feedErr("fng",e); }
+  try{ const j = await getJSON("https://api.coingecko.com/api/v3/global"); const d=j.data; CTX.global = {mcapChg:d.market_cap_change_percentage_24h_usd, btcDom:d.market_cap_percentage.btc, ethDom:d.market_cap_percentage.eth, mcap:d.total_market_cap.usd}; feedOk("coingecko"); }catch(e){ feedErr("coingecko",e); }
+  try{ const j = await getJSON("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json"); CTX.selic = +j[0].valor; feedOk("bcb"); }catch(e){ feedErr("bcb",e); }
+}
+
+/* ---------------- Notícias + sentimento ---------------- */
+const FEEDS = [
+  {n:"InfoMoney", u:"https://www.infomoney.com.br/feed/", lang:"pt"},
+  {n:"Money Times", u:"https://www.moneytimes.com.br/feed/", lang:"pt"},
+  {n:"CoinDesk", u:"https://www.coindesk.com/arc/outboundfeeds/rss/", lang:"en"},
+  {n:"Cointelegraph", u:"https://cointelegraph.com/rss", lang:"en"},
+];
+const POS = ["alta","altas","sobe","sobem","subiu","subindo","dispara","disparou","disparam","recorde","lucro","lucros","ganho","ganhos","avança","avanço","avançam","valoriza","valorização","otimismo","otimista","supera","superou","cresce","crescimento","cresceu","recupera","recuperação","rali","salta","saltou","forte","positivo","positiva","aprova","aprovação","compra","acumula","dividendos","eleva","upgrade","bullish","rally","rallies","surge","surges","soar","soars","soared","gain","gains","gained","record","beats","beat","jump","jumps","jumped","rise","rises","rose","approval","approved","approves","inflows","inflow","adoption","breakout","upbeat","optimism","strong","growth","rebound","rebounds","boost","boosts","outperform","buy","buying","accumulate","high","highs"];
+const NEG = ["queda","quedas","cai","caem","caiu","caindo","despenca","despencou","desaba","desabou","prejuízo","perda","perdas","recua","recuo","recuou","desvaloriza","desvalorização","crise","risco","riscos","rebaixa","rebaixamento","investigação","multa","fraude","falência","pessimismo","incerteza","tensão","guerra","tarifa","tarifas","sanções","fraco","fraca","negativo","negativa","pressão","vende","vendas","liquidação","calote","downgrade","bearish","crash","crashes","plunge","plunges","plunged","fall","falls","fell","drop","drops","dropped","slump","slumps","selloff","sell-off","lawsuit","sues","ban","bans","banned","hack","hacked","exploit","outflows","outflow","liquidations","fear","fears","recession","weak","loss","losses","decline","declines","tumble","tumbles","sink","sinks","risk","warning","fraud","probe","tariff","tariffs","low","lows"];
+const NEGATORS = ["não","nem","sem","no","not","never","without"];
+function sentiment(text){
+  const w = text.toLowerCase().normalize("NFC").split(/[^\p{L}\p{N}&-]+/u).filter(Boolean);
+  let p=0,n=0;
+  w.forEach((x,i)=>{ const neg = i>0 && NEGATORS.includes(w[i-1]); if(POS.includes(x)) neg? n++ : p++; else if(NEG.includes(x)) neg? p++ : n++; });
+  return (p+n) ? (p-n)/(p+n) : 0;
+}
+let NEWS = [];
+async function loadNews(force){
+  const c = DB.cache.news;
+  if(!force && c && Date.now()-c.at < 14*60000){ NEWS = c.items; return; }
+  const items = [];
+  for(const f of FEEDS){
+    try{ const j = await getJSON("https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(f.u));
+      if(j.status!=="ok") throw new Error(j.message||"falha");
+      (j.items||[]).forEach(it=>{ const desc = String(it.description||"").replace(/<[^>]*>/g," ").replace(/&[a-z#0-9]+;/gi," ").slice(0,400);
+        const ts = Date.parse((it.pubDate||"").replace(" ","T")+"Z"); items.push({src:f.n, title:it.title, link:it.link, ts:isFinite(ts)?ts:Date.now(), desc, s:sentiment(it.title+" "+desc)}); });
+      feedOk("news:"+f.n);
+    }catch(e){ feedErr("news:"+f.n, e); }
+  }
+  if(items.length){ items.sort((a,b)=>b.ts-a.ts); NEWS = items; DB.cache.news = {at:Date.now(), items}; save(); }
+  else if(c) NEWS = c.items;
+}
+function newsFor(a){
+  const kws = KW[a.sym]||[], ckw = CLASS_KW[a.cls]||[]; const out=[];
+  for(const it of NEWS){ const txt = it.title+" "+it.desc;
+    if(kws.some(r=>r.test(txt))) out.push({...it, rel:1}); else if(ckw.some(r=>r.test(txt))) out.push({...it, rel:0.4}); }
+  return out;
+}
+function newsScore(a){
+  const now = Date.now(); let num=0, den=0; const list = newsFor(a);
+  for(const it of list){ const age = (now-it.ts)/3600000; if(age>72) continue; const w = it.rel*Math.exp(-age/24); num += w*it.s; den += w; }
+  return {score: den? clip(num/den*Math.min(1, den/1.5)) : 0, n:list.filter(it=>(now-it.ts)<72*3600000).length};
+}
+
+/* ---------------- Indicadores ---------------- */
+function SMA(x,n){ const o=new Array(x.length).fill(NaN); let s=0; for(let i=0;i<x.length;i++){ s+=x[i]; if(i>=n) s-=x[i-n]; if(i>=n-1) o[i]=s/n; } return o; }
+function RSI(c,n=14){ const o=new Array(c.length).fill(NaN); let g=0,l=0; for(let i=1;i<c.length;i++){ const d=c[i]-c[i-1]; const G=Math.max(d,0), L=Math.max(-d,0);
+  if(i<=n){ g+=G; l+=L; if(i===n){ g/=n; l/=n; o[i]=100-100/(1+g/(l||1e-12)); } } else { g=(g*(n-1)+G)/n; l=(l*(n-1)+L)/n; o[i]=100-100/(1+g/(l||1e-12)); } } return o; }
+function rollStd(x,n){ const o=new Array(x.length).fill(NaN); for(let i=n-1;i<x.length;i++){ o[i]=std(x.slice(i-n+1,i+1)); } return o; }
+function indicators(a){
+  const C=a.candles.map(k=>k.c), H=a.candles.map(k=>k.h), L=a.candles.map(k=>k.l), V=a.candles.map(k=>k.v);
+  const ret=C.map((c,i)=>i? c/C[i-1]-1 : 0);
+  const tr=C.map((c,i)=>i? Math.max(H[i]-L[i], Math.abs(H[i]-C[i-1]), Math.abs(L[i]-C[i-1])) : H[i]-L[i]);
+  const vol30 = rollStd(ret,30), sd20=rollStd(C,20);
+  const lv = V.map(v=>Math.log(1+v)), lvm = SMA(lv,20), lvs = rollStd(lv,20);
+  const streak=[]; C.forEach((c,i)=>{ const s = i? Math.sign(c-C[i-1]) : 0; const p = i? streak[i-1] : 0; streak.push(s===0?0: (Math.sign(p)===s? p+s : s)); });
+  const hi252 = C.map((c,i)=>Math.max(...C.slice(Math.max(0,i-251),i+1)));
+  return {C,H,L,V,ret, sma20:SMA(C,20), sma50:SMA(C,50), sma100:SMA(C,100), rsi:RSI(C), sd20, atr:SMA(tr,14), vol30, volz: lv.map((x,i)=> lvs[i]>0? (x-lvm[i])/lvs[i] : 0), roc10:C.map((c,i)=>i>=10? c/C[i-10]-1 : NaN), streak, dd:C.map((c,i)=>1-c/hi252[i])};
+}
+const FACTORS = [
+  {k:"tendencia", n:"Tendência", d:"Médias 20/50/100 dias", bt:true},
+  {k:"momento", n:"Momento", d:"Variação 10 dias ÷ volatilidade", bt:true},
+  {k:"rsi", n:"Exaustão (RSI)", d:"Sobrevendido = sinal de alta", bt:true},
+  {k:"bollinger", n:"Desvio da média", d:"Bandas de Bollinger 20,2", bt:true},
+  {k:"volume", n:"Fluxo de volume", d:"Volume anormal na direção do dia", bt:true},
+  {k:"psicologia", n:"Psicologia", d:"Medo/ganância, capitulação, euforia", bt:true},
+  {k:"nicho", n:"Nicho", d:"Momento dos ativos do mesmo setor", bt:true},
+  {k:"noticias", n:"Notícias", d:"Sentimento das manchetes 72h", bt:false},
+  {k:"macro", n:"Contexto global", d:"Mercado cripto, dólar, juros", bt:false},
+];
+function factorRow(a, I, i){
+  const c=I.C[i], v=I.vol30[i]||0.02;
+  const f = {};
+  f.tendencia = clip(0.6*tanh(((I.sma20[i]/I.sma50[i])-1)/(v*3)) + 0.4*tanh(((c/I.sma100[i])-1)/(v*6)));
+  f.momento = tanh(I.roc10[i]/(v*Math.sqrt(10)));
+  f.rsi = clip((50-I.rsi[i])/25);
+  const pb = I.sd20[i]>0 ? (c-(I.sma20[i]-2*I.sd20[i]))/(4*I.sd20[i]) : 0.5; f.bollinger = clip(-(pb-0.5)*2);
+  f.volume = I.V[i]>0 ? tanh(I.volz[i]/2)*Math.sign(I.ret[i]) : 0;
+  const fg = (a.cls==="crypto"||a.cls==="meme") ? CTX.fngHist[dayKey(a.candles[i].t)] : undefined;
+  if(fg!=null) f.psicologia = clip((50-fg)/35);
+  else f.psicologia = clip(0.5*clip(-I.streak[i]/5) + 0.5*(I.dd[i]>0.12 ? clip((I.dd[i]-0.12)*4,0,1) : -clip((0.03-I.dd[i])*20,0,1)*clip(I.streak[i]/4,0,1)));
+  f.nicho = 0; // preenchido depois, com os pares
+  for(const k in f) if(!isFinite(f[k])) f[k]=0;
+  return f;
+}
+function computeNiche(){
+  for(const cls of Object.keys(CLASSES)){
+    const group = ASSETS.filter(a=>a.cls===cls && a.ind);
+    const maps = group.map(a=>{ const m=new Map(); a.rows.forEach((r,i)=>{ if(r) m.set(bk(a,a.candles[i].t), r.momento); }); return m; });
+    group.forEach((a,gi)=>{ a.rows.forEach((r,i)=>{ if(!r) return; const dk=bk(a,a.candles[i].t); const peers=[]; maps.forEach((m,j)=>{ if(j!==gi && m.has(dk)) peers.push(m.get(dk)); }); r.nicho = peers.length? clip(mean(peers)) : 0; }); });
+  }
+}
+function macroScore(a){
+  if(a.cls==="crypto"||a.cls==="meme"){ if(!CTX.global) return {v:0, txt:"sem dado"}; const x=CTX.global.mcapChg; return {v:tanh(x/4), txt:`Mercado cripto ${x>=0?"+":""}${x.toFixed(2)}% em 24h`}; }
+  if(a.cls==="b3"){ if(!CTX.usdbrl) return {v:0,txt:"sem dado"}; const x=CTX.usdbrl.pct; const exp = ["PETR4","VALE3","SUZB3","EMBR3","KLBN11"].includes(a.sym); return {v: (exp?1:-1)*tanh(x/1.5), txt:`Dólar ${x>=0?"+":""}${x.toFixed(2)}% hoje (${exp?"exportadora ganha":"importa capital estrangeiro"} com ${x>=0?"alta":"queda"})`}; }
+  if(a.cls==="fx"){ return {v:0, txt:CTX.selic!=null?`Selic ${CTX.selic}% (sem modelo de juros ainda)`:"sem dado"}; }
+  if(a.cls==="dex"){ if(!CTX.global) return {v:0, txt:"sem dado"}; const x=CTX.global.mcapChg; return {v:tanh(x/3), txt:`Mercado cripto ${x>=0?"+":""}${x.toFixed(2)}% em 24h (memecoins amplificam o humor geral)`}; }
+  return {v:0, txt:"sem fonte grátis de contexto para EUA ainda"};
+}
+function combine(f, keys){ let s=0, d=0; for(const k of keys){ const w=DB.weights[k]; s+=w*(f[k]||0); d+=w; } return d? s/d : 0; }
+
+/* ---------------- Calibração por análogos históricos ---------------- */
+const BT_KEYS = FACTORS.filter(x=>x.bt).map(x=>x.k);
+const WARM = 100;
+function analyze(a){
+  const I = a.ind, N = I.C.length; if(N < WARM+30) return {err:"histórico insuficiente ("+N+" candles)"};
+  const cost = CLASSES[a.cls].cost;
+  const sHist = a.rows.map(r=> r? combine(r, BT_KEYS) : NaN);
+  const iNow = N-1; const fNow = {...a.rows[iNow]};
+  const ns = newsScore(a), mc = macroScore(a); fNow.noticias = ns.score; fNow.macro = mc.v;
+  // candle do dia ainda em formação: o volume parcial distorce o fator; usa o do último dia completo
+  const partial = bk(a,a.candles[iNow].t) === bk(a,Math.floor(Date.now()/1000)) && a.rows[iNow-1];
+  if(partial) fNow.volume = a.rows[iNow-1].volume;
+  const sTech = combine(fNow, BT_KEYS), sAll = combine(fNow, FACTORS.map(x=>x.k));
+  const dir = sTech>=0 ? 1 : -1;
+  const res = [];
+  for(const h of hzOf(a)){
+    const idx = []; for(let i=WARM;i<N-1-h;i++) if(isFinite(sHist[i])) idx.push(i);
+    if(idx.length<40) continue;
+    const fwd = i => I.C[i+h]/I.C[i]-1;
+    const baseHits = idx.filter(i=>dir*fwd(i)>cost).length; const base = (baseHits+1)/(idx.length+2);
+    let band=0.08, an=[];
+    while(band<=0.5){ an = idx.filter(i=>Math.sign(sHist[i])===dir && Math.abs(sHist[i]-sTech)<=band); if(an.length>=20) break; band+=0.04; }
+    if(an.length<12){ res.push({h, n:an.length, insufficient:true, base}); continue; }
+    const rr = an.map(i=>dir*fwd(i)-cost);
+    const hits = rr.filter(x=>x>0).length; const p0 = (hits+1)/(an.length+2);
+    const wins = rr.filter(x=>x>0), losses = rr.filter(x=>x<=0).map(x=>-x);
+    res.push({h, n:an.length, band, base, p0, exp:mean(rr), avgWin:wins.length?mean(wins):0, medWin:wins.length?median(wins):0, avgLoss:losses.length?mean(losses):0, worst:Math.min(...rr), dates:an.map(i=>a.candles[i].t)});
+  }
+  const valid = res.filter(r=>!r.insufficient);
+  if(!valid.length) return {dir, sTech, sAll, fNow, ns, mc, res, err:"poucos casos semelhantes no histórico"};
+  valid.forEach(r=>r.rank = r.exp/Math.sqrt(r.h));
+  const best = valid.sort((x,y)=>y.rank-x.rank)[0];
+  // ajustes ainda não calibrados historicamente: notícias e contexto global
+  const adjNews = 0.04*ns.score*dir*(DB.weights.noticias/DEFAULT_W.noticias);
+  const adjMacro = 0.03*mc.v*dir*(DB.weights.macro/DEFAULT_W.macro);
+  // correção pelo próprio histórico de acertos (autoaprendizado de calibração)
+  const cal = calibrationShift();
+  const p = clip(best.p0 + adjNews + adjMacro + cal.shift, 0.02, 0.98);
+  const price = I.C[iNow], atrPct = I.atr[iNow]/price;
+  const target = price*(1+dir*best.medWin);
+  const stopPct = Math.max(best.avgLoss*1.2, 1.5*atrPct);
+  const stop = price*(1-dir*stopPct);
+  const b = best.avgLoss>0 ? best.avgWin/best.avgLoss : 1;
+  const kelly = Math.max(0, p - (1-p)/b);
+  const frac = Math.min(0.10, kelly*DB.settings.kelly);
+  const edge = p - best.base;
+  const banks = bankPlan(a, dir, frac, price, best, stopPct);
+  const isOpp = p*100 >= DB.settings.minP && edge*100 >= DB.settings.minEdge && best.exp>0 && frac>0 && Math.abs(sTech)>=0.12;
+  const why = [];
+  if(p*100 < DB.settings.minP) why.push(`chance ${(p*100).toFixed(0)}% abaixo do mínimo de ${DB.settings.minP}%`);
+  if(edge*100 < DB.settings.minEdge) why.push(`vantagem sobre a taxa base de só ${(edge*100).toFixed(1)} p.p.`);
+  if(best.exp<=0) why.push("retorno médio dos casos parecidos é negativo depois dos custos");
+  if(Math.abs(sTech)<0.12) why.push("sinal técnico fraco (perto de neutro)");
+  if(a.cls==="dex" && dir<0) why.push("queda prevista: em DEX não há venda a descoberto, então fica só como previsão");
+  return {dir, sTech, sAll, fNow, ns, mc, res, best, p, adjNews, adjMacro, cal, price, target, stop, stopPct, frac, banks, edge, isOpp, why, cost};
+}
+function usdbrl(){ return CTX.usdbrl ? CTX.usdbrl.bid : 5.9; }
+/* plano por banca: valor, custos (fixo + deslizamento em DEX), mínimo por ordem e viabilidade */
+function bankPlan(a, dir, frac, price, best, stopPct){
+  const toBRL = a.cur==="USD" ? usdbrl() : 1;
+  const minT = a.cls==="b3" ? price : MIN_TICKET[a.cls];
+  return (DB.settings.banks||[]).map(bank=>{
+    const amount = Math.round(bank*frac*100)/100;
+    let slip = 0; if(a.cls==="dex" && a.liq>0) slip = Math.min(0.5, 2*2*(amount/toBRL)/a.liq); // ida e volta, pool de produto constante
+    const fixed = FIXED[a.cls]||0;
+    const costR = amount*slip + fixed;
+    let ok = amount>0, why = "";
+    if(!ok) why = "sem vantagem";
+    else if(a.cls==="dex" && dir<0){ ok=false; why="sem venda a descoberto"; }
+    else if(amount < minT){ ok=false; why=`abaixo do mínimo (${brl(minT)})`; }
+    else if(costR > amount*Math.max(best.exp,0)*0.5 && best.exp>0){ ok=false; why="custos comem o ganho esperado"; }
+    return {bank, amount, ok, why, slip, fixed, exp: ok? amount*best.exp - costR : 0, possible: ok? amount*best.medWin - costR : 0, maxLoss: ok? amount*stopPct + costR : 0};
+  });
+}
+function calibrationShift(){
+  const closed = DB.journal.filter(e=>e.status==="closed");
+  if(closed.length<10) return {shift:0, n:closed.length};
+  const pred = mean(closed.map(e=>e.prob)), act = mean(closed.map(e=>e.result.hit?1:0));
+  const k = closed.length/(closed.length+30);
+  return {shift: clip((act-pred)*k, -0.15, 0.15), n:closed.length, pred, act};
+}
+function runAnalysis(){
+  ASSETS.forEach(a=>{ if(a.candles.length<WARM+30){ a.ind=null; a.rows=[]; return; } a.ind = indicators(a); a.rows = a.candles.map((_,i)=> i>=WARM-1 ? factorRow(a,a.ind,i) : null); });
+  computeNiche();
+  ASSETS.forEach(a=>{ a.analysis = a.ind ? analyze(a) : {err:a.err||"carregando dados…"}; });
+  autoLog();
+}
+
+/* ---------------- Diário: registro automático ---------------- */
+function b3Open(){ const d = new Date(new Date().toLocaleString("en-US",{timeZone:"America/Sao_Paulo"})); const wd=d.getDay(), m=d.getHours()*60+d.getMinutes(); return wd>0&&wd<6&&m>=600&&m<1015; }
+function usOpen(){ const d = new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"})); const wd=d.getDay(), m=d.getHours()*60+d.getMinutes(); return wd>0&&wd<6&&m>=570&&m<960; }
+function marketOpen(a){ if(a.cls==="b3") return b3Open(); if(a.cls==="us") return usOpen(); if(a.cls==="fx"){ const wd=new Date().getUTCDay(); return wd>0&&wd<6; } return true; }
+function liveFresh(a){ return a.live!=null && (Date.now()-a.liveAt) < (a.cls==="b3"||a.cls==="us" ? 3*3600000 : 15*60000); }
+function autoLog(manualSym){
+  let added = 0;
+  for(const a of ASSETS){
+    const an = a.analysis; if(!an || !an.best) continue;
+    const manual = manualSym===a.sym;
+    if(!manual && (!an.isOpp || !marketOpen(a) || !liveFresh(a))) continue;
+    if(!manual && DB.journal.some(e=>e.status==="open" && e.sym===a.sym)) continue; // uma previsão aberta por ativo
+    const now = Date.now(); const h = an.best.h;
+    const b1k = an.banks.find(b=>b.bank===1000) || an.banks.at(-1) || {amount:0};
+    const amount = b1k.amount;
+    DB.journal.unshift({
+      id: now.toString(36)+Math.random().toString(36).slice(2,6), v:VERSION, manual, sym:a.sym, name:a.name, cls:a.cls, cur:a.cur, dir:an.dir,
+      tf: tfOf(a), createdAt: now, entry: an.price, horizon:h, deadline: now + Math.round(h*tfOf(a)*1000*(tfOf(a)===86400?CLASSES[a.cls].cal:1)), frac: an.frac, banks: an.banks.map(b=>({...b})), liq: a.liq||null, chain:a.chain||null, token:a.token||null,
+      prob: an.p, probBase: an.best.p0, baseRate: an.best.base, analogs: an.best.n, exp: an.best.exp, avgWin: an.best.avgWin, avgLoss: an.best.avgLoss,
+      target: an.target, stop: an.stop, amount, expPnl: amount*an.best.exp, possiblePnl: amount*an.best.medWin, maxLoss: amount*an.stopPct,
+      score: an.sTech, scoreAll: an.sAll, factors: an.fNow, weights: {...DB.weights}, cost: an.cost,
+      news: newsFor(a).filter(n=>Date.now()-n.ts<72*3600000).slice(0,6).map(n=>({t:n.title, s:n.s, src:n.src})),
+      ctx: {fng: CTX.fng && CTX.fng.v, mcapChg: CTX.global && CTX.global.mcapChg, usdbrl: CTX.usdbrl && CTX.usdbrl.bid, selic: CTX.selic},
+      status:"open"
+    });
+    added++;
+    toast(`${manual?"Registro manual":"Nova oportunidade"}: ${an.dir>0?"ALTA":"QUEDA"} em ${a.sym}, chance ${(an.p*100).toFixed(0)}%, prazo ${h} ${unitOf(a)}.`);
+  }
+  if(added){ save(); renderAll(); syncVault(); }
+}
+
+/* ---------------- Avaliação no vencimento + aprendizado ---------------- */
+function evaluateDue(){
+  const due = DB.journal.filter(e=>e.status==="open" && Date.now()>=e.deadline);
+  let n=0;
+  for(const e of due){
+    const a = ASSETS.find(x=>x.sym===e.sym); if(!a || !a.candles.length) continue;
+    const dl = Math.floor(e.deadline/1000), st = Math.floor(e.createdAt/1000);
+    // preço de saída: fechamento do candle do dia do vencimento; se for o dia atual, preço ao vivo
+    let exitC = null; for(const k of a.candles){ if(bk(a,k.t) <= bk(a,dl)) exitC = k; }
+    if(!exitC) continue;
+    const isToday = bk(a,exitC.t) === bk(a,Math.floor(Date.now()/1000));
+    if(isToday && !liveFresh(a)) continue;
+    const exit = isToday ? a.live : exitC.c;
+    const path = a.candles.filter(k=>bk(a,k.t)>=bk(a,st) && bk(a,k.t)<=bk(a,dl));
+    const hiP = Math.max(...path.map(k=>k.h), exit), loP = Math.min(...path.map(k=>k.l), exit);
+    const ret = exit/e.entry-1, retDir = e.dir*ret, retNet = retDir - e.cost;
+    const mfe = e.dir>0 ? hiP/e.entry-1 : 1-loP/e.entry, mae = e.dir>0 ? 1-loP/e.entry : hiP/e.entry-1;
+    const targetHit = e.dir>0 ? hiP>=e.target : loP<=e.target;
+    const stopHit = e.dir>0 ? loP<=e.stop : hiP>=e.stop;
+    const hit = retNet>0;
+    const move = Math.sign(ret)||1;
+    const fe = {}; for(const f of FACTORS){ const v=e.factors[f.k]||0; fe[f.k] = Math.abs(v)<0.1 ? null : Math.sign(v)===move; }
+    // aprendizado: pesos multiplicativos (fator que apontou certo ganha peso)
+    const eta = 0.08;
+    for(const f of FACTORS){ const v=e.factors[f.k]||0; DB.weights[f.k] = clip(DB.weights[f.k]*Math.exp(eta*v*move), 0.25, 3); }
+    const lessons = [];
+    lessons.push(hit ? `Acertou: ${e.dir>0?"alta":"queda"} prevista, resultado ${pct(retNet)} líquido de custos.` : `Errou: previa ${e.dir>0?"alta":"queda"}, mas o resultado foi ${pct(retNet)} líquido de custos.`);
+    if(!hit && targetHit) lessons.push(`O alvo (${fmtPx(e.target,e.cur)}) chegou a ser tocado e depois o preço voltou. Uma saída parcial no alvo teria transformado o erro em ganho: vale testar realização parcial.`);
+    if(hit && !targetHit) lessons.push(`A direção estava certa, mas o movimento (${pct(retDir)}) ficou abaixo do alvo estimado (${pct(e.dir*(e.target/e.entry-1))}). O alvo pode estar otimista para esse regime.`);
+    if(stopHit) lessons.push(`O stop teórico (${fmtPx(e.stop,e.cur)}) foi atingido no caminho (pior momento ${pct(-mae)}). Com stop real, a operação teria sido encerrada antes.`);
+    const right = FACTORS.filter(f=>fe[f.k]===true).map(f=>f.n), wrong = FACTORS.filter(f=>fe[f.k]===false).map(f=>f.n);
+    if(right.length) lessons.push(`Fatores que apontaram a direção certa: ${right.join(", ")}. Ganharam peso.`);
+    if(wrong.length) lessons.push(`Fatores que apontaram errado: ${wrong.join(", ")}. Perderam peso.`);
+    if(e.prob>=0.65 && !hit) lessons.push(`Confiança alta (${(e.prob*100).toFixed(0)}%) num erro: se isso se repetir, a calibração vai reduzir as próximas chances.`);
+    if(e.news && e.news.length){ const ms = mean(e.news.map(n=>n.s)); if(Math.abs(ms)>0.2) lessons.push(`As notícias no registro tinham sentimento ${ms>0?"positivo":"negativo"} (${ms.toFixed(2)}), e o preço ${Math.sign(ms)===move?"seguiu":"contrariou"} esse sentimento.`); }
+    if(a.cls==="dex" && e.liq && a.liq && a.liq < e.liq*0.2) lessons.push(`A liquidez caiu de US$ ${Math.round(e.liq).toLocaleString("pt-BR")} para US$ ${Math.round(a.liq).toLocaleString("pt-BR")}: sinal de saída dos criadores ou de "rug pull". Na prática, vender teria sido difícil.`);
+    const bankRes = (e.banks||[]).map(b=>({bank:b.bank, ok:b.ok, why:b.why, amount:b.amount, pnl: b.ok ? b.amount*(retDir - e.cost) - b.amount*(b.slip||0) - (b.fixed||0) : 0}));
+    e.status = "closed";
+    e.result = {bankRes, exit, exitAt: isToday? Date.now() : exitC.t*1000, ret, retDir, retNet, pnl: e.amount*retNet, hit, targetHit, stopHit, mfe, mae, factorEval: fe, lessons, evaluatedAt: Date.now()};
+    n++;
+  }
+  if(n){ save(); toast(`${n} ${n>1?"previsões vencidas foram avaliadas":"previsão vencida foi avaliada"}. Veja as lições em Oportunidades.`); runAnalysis(); renderAll(); syncVault(); }
+  return n;
+}
+
+/* ---------------- Vault do Obsidian (File System Access API) ---------------- */
+const MKT = {crypto:"cripto", meme:"memecoins", b3:"b3", fx:"dolar", us:"bolsa-eua", dex:"memecoins"};
+const NOTE_NAME = {QQQ:"Nasdaq 100", SPY:"S&P 500"};
+let VAULT = null, VAULT_STATE = "off"; // off | ok | needs-permission | unsupported
+function isoBRT(ms){ const d = new Date(ms - 3*3600000); return d.toISOString().slice(0,16)+"-03:00"; }
+function opId(e){ const d = new Date(e.createdAt - 3*3600000).toISOString(); return `OP-${d.slice(0,10).replace(/-/g,"")}-${d.slice(11,16).replace(":","")}-${e.sym}`; }
+const yq = s => JSON.stringify(String(s));
+const num = (x,d=6) => x==null||!isFinite(x) ? "" : +(+x).toFixed(d);
+function opMarkdown(e){
+  const id = opId(e), r = e.result, tk = NOTE_NAME[e.sym]||e.sym, dirW = e.dir>0?"compra":"venda";
+  const retPos = e.dir*(e.target/e.entry-1), lossPos = e.dir*(1-e.stop/e.entry);
+  const unit = unitOf(e);
+  const arrow = v => Math.abs(v)<0.1 ? "—" : v>0 ? "↑" : "↓";
+  return `---
+tipo: operacao
+id: ${id}
+ativo: "[[${tk}]]"
+mercado: ${MKT[e.cls]}
+direcao: ${dirW}
+status: ${r?"encerrada":"aberta"}
+data_abertura: ${isoBRT(e.createdAt)}
+preco_entrada: ${num(e.entry,8)}
+fonte_preco: ${yq(({crypto:"Coinbase",meme:"Coinbase",b3:"brapi.dev",us:"Twelve Data",fx:"AwesomeAPI",dex:"GeckoTerminal/DexScreener"})[e.cls])}
+valor_simulado_brl: ${num(e.amount,2)}
+fracao_banca: ${num(e.frac,4)}
+bancas: {${(e.banks||[]).map(b=>`"${b.bank}": ${b.ok?num(b.amount,2):0}`).join(", ")}}${e.token?`\ncontrato: ${yq(e.chain+":"+e.token)}`:""}
+alvo: ${num(e.target,8)}
+stop: ${num(e.stop,8)}
+retorno_possivel_pct: ${num(retPos*100,2)}
+perda_possivel_pct: ${num(lossPos*100,2)}
+prazo: ${isoBRT(e.deadline)}
+chance: ${num(e.prob,3)}
+linha_de_base: ${yq(`taxa base ${(e.baseRate*100).toFixed(1)}% para ${dirW} em ${e.horizon} ${unit}`)}
+data_encerramento: ${r?isoBRT(r.evaluatedAt):""}
+preco_saida: ${r?num(r.exit,8):""}
+resultado: ${r?(r.hit?"acerto":"erro"):""}
+retorno_real_pct: ${r?num(r.retNet*100,2):""}
+analise: ${r?yq(`[[AN-${id}]]`):""}
+origem: ${e.manual?"manual":"automatica"}
+versao_programa: ${e.v||VERSION}
+tags: [operacao, ${MKT[e.cls]}]
+---
+# ${id}
+
+## Resumo
+${e.dir>0?"Compra":"Venda"} simulada de [[${tk}]] a ${fmtPx(e.entry,e.cur)}, alvo ${fmtPx(e.target,e.cur)} (${pct(retPos)}), stop ${fmtPx(e.stop,e.cur)} (−${(lossPos*100).toFixed(2)}%), prazo ${fmtDate(e.deadline)} (${e.horizon} ${unit}), chance ${(e.prob*100).toFixed(1)}%. Fração da banca: ${((e.frac||0)*100).toFixed(1)}% (1/4 de Kelly).
+
+| Banca | Valor | Esperado | No alvo | No stop |
+|---|---|---|---|---|
+${(e.banks||[]).map(b=>b.ok? `| ${brl(b.bank)} | ${brl(b.amount)} | ${brl(b.exp)} | ${brl(b.possible)} | ${brl(-b.maxLoss)} |` : `| ${brl(b.bank)} | não opera: ${b.why} | | | |`).join("\n")}
+
+## Tese
+Pontuação técnica ${e.score.toFixed(3)} (total com notícias e contexto ${e.scoreAll.toFixed(3)}). Em ${e.analogs} dias do último ano com pontuação parecida, ${(e.probBase*100).toFixed(1)}% terminaram na direção prevista depois de ${e.horizon} ${unit}, já descontados custos de ${(e.cost*100).toFixed(1)}%. Sem filtro, essa direção acerta ${(e.baseRate*100).toFixed(1)}% (vantagem de ${((e.probBase-e.baseRate)*100).toFixed(1)} p.p. antes dos ajustes). Retorno médio dos casos parecidos: ${pct(e.exp)}; ganho médio ${pct(e.avgWin)}, perda média −${(e.avgLoss*100).toFixed(2)}%.
+
+## Fatores considerados
+| Fator | Leitura | Direção | Peso |
+|---|---|---|---|
+${FACTORS.map(f=>{ const v=e.factors[f.k]||0; return `| ${f.n} (${f.d}) | ${v>=0?"+":""}${v.toFixed(3)} | ${arrow(v)} | ${(e.weights[f.k]||0).toFixed(3)} |`; }).join("\n")}
+
+## Dados no momento da entrada (micro detalhes)
+- Preço de entrada: ${fmtPx(e.entry,e.cur)} (${e.cur})
+- Medo & Ganância (cripto): ${e.ctx.fng ?? "—"}
+- Mercado cripto 24h: ${e.ctx.mcapChg!=null? e.ctx.mcapChg.toFixed(2)+"%" : "—"}
+- Dólar: ${e.ctx.usdbrl? "R$ "+e.ctx.usdbrl.toFixed(4) : "—"} · Selic: ${e.ctx.selic!=null? e.ctx.selic+"%" : "—"}
+- Notícias lidas (sentimento de −1 a +1):
+${(e.news&&e.news.length)? e.news.map(n=>`  - [${n.s.toFixed(2)}] ${String(n.t).replace(/[\r\n|]/g," ")} (${n.src})`).join("\n") : "  - nenhuma manchete recente sobre o ativo"}
+- O que **não** foi possível verificar: notícias e contexto global ainda não têm calibração histórica; sentimento é por palavras-chave; custos são estimados por classe e não incluem impostos nem variação cambial.
+
+## O que invalidaria a tese
+Preço ${e.dir>0?"abaixo":"acima"} do stop ${fmtPx(e.stop,e.cur)}, ou notícia forte em sentido contrário antes do prazo.
+
+## Comparação com a linha de base
+A estratégia ingênua (sempre ${dirW} neste ativo e prazo) acertou ${(e.baseRate*100).toFixed(1)}% no último ano. A previsão só vale algo se superar isso de forma consistente.
+
+## Adendos
+_Nunca editar o que está acima depois da abertura. Correções entram aqui, com data._
+`;
+}
+function anMarkdown(e){
+  const id = opId(e), r = e.result, tk = NOTE_NAME[e.sym]||e.sym; const brier = (e.prob-(r.hit?1:0))**2;
+  const fe = r.factorEval; const days = ((r.evaluatedAt-e.createdAt)/DAY).toFixed(1);
+  return `---
+tipo: analise
+operacao: "[[${id}]]"
+ativo: "[[${tk}]]"
+data_analise: ${isoBRT(r.evaluatedAt).slice(0,10)}
+resultado: ${r.hit?"acerto":"erro"}
+chance_prevista: ${num(e.prob,3)}
+retorno_real_pct: ${num(r.retNet*100,2)}
+brier: ${num(brier,4)}
+licao_principal: ${yq(r.lessons[1]||r.lessons[0])}
+tags: [analise, ${MKT[e.cls]}]
+---
+# AN-${id}
+
+## O que foi previsto x o que aconteceu
+| | Previsto | Real |
+|---|---|---|
+| Direção | ${e.dir>0?"alta":"queda"} | ${r.ret>=0?"alta":"queda"} (${pct(r.ret)}) |
+| Preço final | alvo ${fmtPx(e.target,e.cur)} | ${fmtPx(r.exit,e.cur)} |
+| Atingiu | alvo/stop/prazo | alvo ${r.targetHit?"sim":"não"}, stop ${r.stopHit?"sim":"não"}, prazo sim |
+| Tempo até o resultado | ${e.horizon} ${unitOf(e)} | ${days} dias corridos |
+${(r.bankRes||[]).map(b=>`| Banca ${brl(b.bank)} | ${b.ok?brl(b.amount):"não operou"} | ${b.ok?brl(b.pnl):b.why} |`).join("\n")}
+| Resultado líquido | ${pct(e.exp)} esperado | ${pct(r.retNet)} · ${brl(r.pnl)} |
+
+## Caminho do preço
+Melhor momento ${pct(r.mfe)}, pior momento ${pct(-r.mae)} a favor da operação (candles diários; a ordem dentro do dia não é conhecida).
+
+## Fatores: quem acertou, quem errou
+| Fator | Leitura na entrada | Estava certo? | Comentário |
+|---|---|---|---|
+${FACTORS.map(f=>{ const v=e.factors[f.k]||0; return `| ${f.n} | ${v>=0?"+":""}${v.toFixed(3)} | ${fe[f.k]===true?"sim":fe[f.k]===false?"não":"neutro"} | peso na entrada ${(e.weights[f.k]||0).toFixed(3)} |`; }).join("\n")}
+
+## O que aconteceu que não estava na análise
+_A preencher: notícias e eventos do período que o programa não leu._
+
+## Foi sorte ou competência?
+Chance prevista ${(e.prob*100).toFixed(1)}%; Brier desta previsão ${brier.toFixed(3)} (0,25 = chute). Uma previsão isolada não prova nada: olhar a calibração acumulada no programa e no [[Placar automático]].
+
+## Comparação com a linha de base
+Linha de base: ${(e.baseRate*100).toFixed(1)}% de acerto para ${e.dir>0?"compra":"venda"} sem filtro.
+
+## Lição e ajuste
+${r.lessons.map(l=>"- "+l).join("\n")}
+- Ajuste automático: pesos dos fatores atualizados pelo programa (atualização multiplicativa, taxa 0,08).
+`;
+}
+function idb(){ return new Promise((res,rej)=>{ const q=indexedDB.open("mftracker",1); q.onupgradeneeded=()=>q.result.createObjectStore("kv"); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+async function idbSet(k,v){ const d=await idb(); return new Promise((res,rej)=>{ const t=d.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
+async function idbGet(k){ const d=await idb(); return new Promise((res,rej)=>{ const q=d.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+async function writeFile(dirNames, name, text){
+  let d = VAULT; for(const n of dirNames) d = await d.getDirectoryHandle(n, {create:true});
+  const fh = await d.getFileHandle(name, {create:true}); const w = await fh.createWritable(); await w.write(text); await w.close();
+}
+async function initVault(){
+  if(!window.showDirectoryPicker){ VAULT_STATE="unsupported"; renderVault(); return; }
+  try{ const h = await idbGet("vault"); if(h){ VAULT=h; VAULT_STATE = (await h.queryPermission({mode:"readwrite"}))==="granted" ? "ok" : "needs-permission"; } }catch(e){ console.warn(e); }
+  renderVault(); if(VAULT_STATE==="ok") syncVault();
+}
+async function connectVault(){
+  try{
+    if(VAULT && VAULT_STATE==="needs-permission"){ if((await VAULT.requestPermission({mode:"readwrite"}))==="granted"){ VAULT_STATE="ok"; renderVault(); syncVault(); } return; }
+    const h = await window.showDirectoryPicker({id:"mfvault", mode:"readwrite"});
+    let ok=false; try{ await h.getDirectoryHandle("04 Operações"); ok=true; }catch(_){}
+    if(!ok){ toast(`A pasta "${h.name}" não tem a subpasta "04 Operações". Escolha a pasta do vault: Documentos\\MF Tracker.`); return; }
+    VAULT=h; VAULT_STATE="ok"; await idbSet("vault",h); renderVault(); syncVault(true);
+  }catch(e){ if(e.name!=="AbortError") toast("Não consegui conectar o vault: "+e.message); }
+}
+let syncing=false;
+async function syncVault(all){
+  if(VAULT_STATE!=="ok" || syncing) return; syncing=true;
+  try{
+    for(const e of DB.journal){
+      const id = opId(e);
+      if(all || !e.vOp || (e.result && !e.vAn)){ await writeFile(["04 Operações"], id+".md", opMarkdown(e)); e.vOp=true; }
+      if(e.result && (all || !e.vAn)){ await writeFile(["05 Análises"], "AN-"+id+".md", anMarkdown(e)); e.vAn=true; }
+    }
+    await writeFile(["04 Operações"], "Placar automático.md", placarMarkdown());
+    await writeFile(["02 Mercados"], "Sinais do modelo.md", quotesMarkdown());
+    if(RADAR.list.length) await writeFile(["02 Mercados"], "Radar de memecoins (automático).md", radarMarkdown());
+    await writeFile(["99 Meta","Backup do programa"], "mf-tracker-dados.json", JSON.stringify({...DB, cache:{}}, null, 1));
+    DB.cache.vaultAt = Date.now(); save(); renderVault();
+  }catch(e){ console.warn(e); if(e.name==="NotAllowedError"){ VAULT_STATE="needs-permission"; renderVault(); } else toast("Falha ao gravar no vault: "+e.message); }
+  finally{ syncing=false; }
+}
+function placarMarkdown(){
+  const c = DB.journal.filter(e=>e.status==="closed"), o = DB.journal.filter(e=>e.status==="open"), h = c.filter(e=>e.result.hit).length;
+  const pnl = c.reduce((s,e)=>s+e.result.pnl,0), br = c.length? mean(c.map(e=>(e.prob-(e.result.hit?1:0))**2)) : null;
+  return `---
+tipo: painel
+gerado_por: MF Tracker ${VERSION}
+atualizado: ${isoBRT(Date.now())}
+tags: [painel, operacoes]
+---
+# Placar automático
+_Arquivo regravado pelo programa a cada sincronização. Não editar à mão._
+
+| Abertas | Encerradas | Acertos | Erros | Taxa | Brier |
+|---|---|---|---|---|---|
+| ${o.length} | ${c.length} | ${h} | ${c.length-h} | ${c.length?(h/c.length*100).toFixed(1)+"%":"—"} | ${br==null?"—":br.toFixed(3)} |
+
+## Bancas
+| Banca inicial | Atual | Retorno | Operou | Não operou |
+|---|---|---|---|---|
+${(DB.settings.banks||[]).map(bank=>{ let eq=bank, ops=0, skip=0; c.forEach(e=>{ const br=(e.result.bankRes||[]).find(b=>b.bank===bank); if(!br) return; if(br.ok){ops++; eq+=br.pnl;} else skip++; }); return `| ${brl(bank)} | ${brl(eq)} | ${pct(eq/bank-1)} | ${ops} | ${skip} |`; }).join("\n")}
+
+## Pesos atuais dos fatores
+| Fator | Peso inicial | Peso atual |
+|---|---|---|
+${FACTORS.map(f=>`| ${f.n} | ${DEFAULT_W[f.k]} | ${DB.weights[f.k].toFixed(3)} |`).join("\n")}
+`;
+}
+function quotesMarkdown(){
+  const rows = ASSETS.map(a=>{ const an=a.analysis||{}; const px=a.live ?? a.candles.at(-1)?.c; const n=a.candles.length; const ch = a.tf===3600 ? (a.dex&&a.dex.ch24!=null? a.dex.ch24/100 : null) : (n>1? a.candles[n-1].c/a.candles[n-2].c-1 : null);
+    return `| [[${NOTE_NAME[a.sym]||a.sym}]] | ${fmtPx(px,a.cur)} | ${ch==null?"—":pct(ch)} | ${an.best? (an.dir>0?"alta":"queda")+" "+(an.p*100).toFixed(0)+"% em "+an.best.h+" "+unitOf(a) : "—"} | ${an.isOpp?"sim":"não"} | ${a.liveAt?isoBRT(a.liveAt):"—"} | ${({coinbase:"Coinbase",brapi:"brapi.dev",twelve:"Twelve Data",awesome:"AwesomeAPI",gecko:"DexScreener"})[a.src]} |`; }).join("\n");
+  return `---
+tipo: painel
+gerado_por: MF Tracker ${VERSION}
+atualizado: ${isoBRT(Date.now())}
+tags: [painel, sinais]
+---
+# Sinais do modelo
+_Regravado pelo programa (MF-Tracker.html) a cada 15 minutos enquanto ele está aberto. Preços do coletor em [[Cotações ao vivo]]. Preços em US$ para cripto e EUA, R$ para B3 e dólar. Não editar à mão._
+
+| Ativo | Preço | Variação 24h | Leitura do modelo | Oportunidade | Atualizado | Fonte |
+|---|---|---|---|---|---|---|
+${rows}
+
+Contexto: Medo & Ganância ${CTX.fng?CTX.fng.v+" ("+trFng(CTX.fng.cls)+")":"—"} · mercado cripto 24h ${CTX.global?CTX.global.mcapChg.toFixed(2)+"%":"—"} · dólar ${CTX.usdbrl?"R$ "+CTX.usdbrl.bid.toFixed(4):"—"} · Selic ${CTX.selic!=null?CTX.selic+"%":"—"}
+`;
+}
+function downloadMd(){
+  const parts = DB.journal.map(e=>`<!-- ${opId(e)}.md -->\n`+opMarkdown(e)+(e.result? `\n\n<!-- AN-${opId(e)}.md -->\n`+anMarkdown(e) : "")).join("\n\n");
+  const blob = new Blob([parts||"# Sem operações ainda\n"], {type:"text/markdown"}); const u=URL.createObjectURL(blob); const l=document.createElement("a"); l.href=u; l.download="mf-tracker-operacoes.md"; l.click(); setTimeout(()=>URL.revokeObjectURL(u),2000);
+}
+function renderVault(){
+  const el = $("#vaultStatus"); if(!el) return;
+  const txt = {off:"Não conectado. Conecte a pasta Documentos\\MF Tracker para gravar cada operação e análise como nota.", ok:`Conectado à pasta "${VAULT&&VAULT.name}". Cada operação e análise é gravada sozinha.${DB.cache.vaultAt?" Última gravação: "+fmtDate(DB.cache.vaultAt)+".":""}`, "needs-permission":`O navegador pede nova autorização para gravar em "${VAULT&&VAULT.name}". Clique em Reautorizar vault.`, unsupported:"Este navegador não permite gravar em pastas. Use Chrome ou Edge, ou baixe as notas em .md."}[VAULT_STATE];
+  el.textContent = txt; $("#btnVault").textContent = VAULT_STATE==="needs-permission" ? "Reautorizar vault" : VAULT_STATE==="ok" ? "Trocar pasta do vault" : "Conectar vault do Obsidian";
+  $("#btnVault").style.display = VAULT_STATE==="unsupported" ? "none" : "";
+  const d = $("#vaultDot"); if(d) d.className = "dot "+(VAULT_STATE==="ok"?"ok":VAULT_STATE==="needs-permission"?"wait":"");
+}
+
+/* ---------------- Radar de memecoins novas ---------------- */
+const RADAR = {list:[], at:0, err:null};
+const ageH = ms => ms ? (Date.now()-ms)/3600000 : null;
+function normGT(pool, srcTag){
+  const at = pool.attributes, net = pool.id.split("_")[0], tok = (pool.relationships?.base_token?.data?.id||"").replace(net+"_","");
+  const name = (at.name||"").split(" / ")[0];
+  const tx = at.transactions?.h24||{};
+  return {key:net+":"+tok, chain:DS_CHAIN[net]||net, gtNet:net, token:tok, pool:at.address, sym:name, name, price:+at.base_token_price_usd, fdv:+at.fdv_usd||0, mcap:+at.market_cap_usd||0, liq:+at.reserve_in_usd||0, vol24:+(at.volume_usd?.h24)||0,
+    ch1:+(at.price_change_percentage?.h1)||0, ch6:+(at.price_change_percentage?.h6)||0, ch24:+(at.price_change_percentage?.h24)||0, buys:tx.buys||0, sells:tx.sells||0, created:Date.parse(at.pool_created_at)||null, src:[srcTag]};
+}
+function normDS(pr, srcTag){
+  const tx = pr.txns?.h24||{};
+  return {key:(GT_NET[pr.chainId]||pr.chainId)+":"+pr.baseToken.address, chain:pr.chainId, gtNet:GT_NET[pr.chainId]||pr.chainId, token:pr.baseToken.address, pool:pr.pairAddress, sym:pr.baseToken.symbol, name:pr.baseToken.name, price:+pr.priceUsd, fdv:pr.fdv||0, mcap:pr.marketCap||0, liq:pr.liquidity?.usd||0, vol24:pr.volume?.h24||0,
+    ch1:pr.priceChange?.h1||0, ch6:pr.priceChange?.h6||0, ch24:pr.priceChange?.h24||0, buys:tx.buys||0, sells:tx.sells||0, created:pr.pairCreatedAt||null, src:[srcTag], url:pr.url};
+}
+function scoreCand(c, symCount){
+  const cap = c.mcap||c.fdv||1, age = ageH(c.created);
+  let risk = 0; const flags=[];
+  if(age!=null){ if(age<6){risk+=30;flags.push("menos de 6h de vida");} else if(age<24){risk+=20;flags.push("menos de 24h");} else if(age<72){risk+=10;} }
+  if(c.liq<10000){risk+=30;flags.push("liquidez muito baixa");} else if(c.liq<50000){risk+=15;flags.push("liquidez baixa");} else if(c.liq<150000) risk+=5;
+  if(c.liq/cap<0.03){risk+=15;flags.push("liquidez pequena para o valor de mercado");}
+  if(cap<100000){risk+=10;}
+  if(c.sells>c.buys*1.2){risk+=10;flags.push("mais vendas que compras");}
+  if(c.ch24>300){risk+=10;flags.push("já subiu mais de 300% em 24h");}
+  if((symCount[c.sym.toLowerCase()]||0)>1){risk+=15;flags.push("há outras moedas com o mesmo nome (risco de imitação)");}
+  const turnover = c.vol24/cap, bp = c.buys/((c.buys+c.sells)||1);
+  const s1 = clip(Math.log10(Math.max(turnover,1e-4)*10)/2,0,1), s2 = clip((bp-0.45)/0.15,0,1), s3 = clip(c.ch6/50,0,1)*(c.ch1>-5?1:0.5)*(c.ch24<300?1:0.4), s4 = clip(Math.log10(Math.max(c.liq,1)/5000)/2,0,1), s5 = c.src.length>1?1:0.5;
+  c.potential = Math.round(100*(0.25*s1+0.25*s2+0.2*s3+0.2*s4+0.1*s5)); c.risk = Math.min(100,risk); c.flags = flags; c.age = age;
+  return c;
+}
+async function loadRadar(){
+  const items = new Map(); const put = c=>{ if(!c.token||!isFinite(c.price)||c.price<=0) return; const k=c.key; if(items.has(k)){ items.get(k).src.push(...c.src); } else items.set(k,c); };
+  try{ const j = await gtCall("https://api.geckoterminal.com/api/v2/networks/trending_pools?page=1"); j.data.forEach(p=>put(normGT(p,"tendência geral"))); feedOk("gecko"); }catch(e){ feedErr("gecko",e); }
+  try{ const j = await gtCall("https://api.geckoterminal.com/api/v2/networks/solana/trending_pools?page=1"); j.data.forEach(p=>put(normGT(p,"tendência Solana"))); }catch(e){ feedErr("gecko",e); }
+  try{ const j = await gtCall("https://api.geckoterminal.com/api/v2/networks/solana/new_pools?page=1"); j.data.forEach(p=>put(normGT(p,"novos pools Solana"))); }catch(e){ feedErr("gecko",e); }
+  try{ const b = await getJSON("https://api.dexscreener.com/token-boosts/latest/v1"); const sol = [...new Set(b.filter(x=>x.chainId==="solana").map(x=>x.tokenAddress))].slice(0,30);
+    if(sol.length){ const j = await getJSON("https://api.dexscreener.com/tokens/v1/solana/"+sol.join(",")); const best={}; j.forEach(pr=>{ const k=pr.baseToken.address; if(!best[k]||(pr.liquidity?.usd||0)>(best[k].liquidity?.usd||0)) best[k]=pr; }); Object.values(best).forEach(pr=>put(normDS(pr,"impulsionadas DexScreener"))); }
+    feedOk("dexscreener"); }catch(e){ feedErr("dexscreener",e); }
+  const list = [...items.values()].filter(c=>c.liq>=3000 && c.vol24>=5000);
+  const symCount = {}; list.forEach(c=>{ const k=c.sym.toLowerCase(); symCount[k]=(symCount[k]||0)+1; });
+  list.forEach(c=>scoreCand(c, symCount)); list.sort((a,b)=>b.potential-a.potential);
+  RADAR.list = list; RADAR.at = Date.now();
+  radarSnapshot(); renderRadar();
+}
+/* o radar também é testado: guarda os destaques e confere o preço 24h e 7 dias depois */
+function radarSnapshot(){
+  DB.radar = DB.radar || {snaps:[]};
+  const last = DB.radar.snaps[0]; if(last && Date.now()-last.at < 6*3600000) return;
+  const picks = RADAR.list.slice(0,10).map(c=>({key:c.key, chain:c.chain, token:c.token, sym:c.sym, price:c.price, liq:c.liq, potential:c.potential, risk:c.risk}));
+  if(!picks.length) return;
+  DB.radar.snaps.unshift({at:Date.now(), picks}); DB.radar.snaps = DB.radar.snaps.slice(0,120); save();
+}
+async function evaluateRadar(){
+  const snaps = (DB.radar&&DB.radar.snaps)||[]; const need = [];
+  snaps.forEach(sn=>sn.picks.forEach(pk=>{ const age = Date.now()-sn.at; if(age>=DAY && pk.r24==null) need.push([pk,"r24"]); if(age>=7*DAY && pk.r7==null) need.push([pk,"r7"]); }));
+  if(!need.length) return;
+  const byChain = {}; need.forEach(([pk])=>{ (byChain[pk.chain]=byChain[pk.chain]||new Set()).add(pk.token); });
+  const now = {}, okChains = new Set();
+  for(const [chain,set] of Object.entries(byChain)){ const arr=[...set]; okChains.add(chain); for(let i=0;i<arr.length;i+=30){ try{ const j = await getJSON(`https://api.dexscreener.com/tokens/v1/${chain}/${arr.slice(i,i+30).join(",")}`); j.forEach(pr=>{ const k=pr.baseToken.address; if(!now[k]||(pr.liquidity?.usd||0)>(now[k].liq||0)) now[k]={price:+pr.priceUsd, liq:pr.liquidity?.usd||0}; }); }catch(e){ okChains.delete(chain); } } }
+  need.forEach(([pk,f])=>{ const x = now[pk.token]; if(x){ pk[f] = x.price/pk.price-1; if(x.liq < pk.liq*0.2 || pk[f] < -0.9) pk.rug = true; } else if(okChains.has(pk.chain)){ pk[f] = -1; pk.rug = true; pk.gone = true; } });
+  save(); renderRadar();
+}
+function radarStats(){
+  const all = ((DB.radar&&DB.radar.snaps)||[]).flatMap(s=>s.picks);
+  const f = k => all.filter(p=>p[k]!=null).map(p=>p[k]);
+  const r24 = f("r24"), r7 = f("r7");
+  const hiLo = k => { const ev = all.filter(p=>p[k]!=null).sort((a,b)=>b.potential-a.potential); if(ev.length<10) return null; const h=ev.slice(0,ev.length>>1), l=ev.slice(ev.length>>1); return [median(h.map(p=>p[k])), median(l.map(p=>p[k]))]; };
+  return {n:all.length, n24:r24.length, n7:r7.length, med24:median(r24), med7:median(r7), up24:r24.length? r24.filter(x=>x>0).length/r24.length : null, up7:r7.length? r7.filter(x=>x>0).length/r7.length:null, rug:all.filter(p=>p.rug).length, hl24:hiLo("r24"), hl7:hiLo("r7")};
+}
+function renderRadar(){
+  const el = $("#radarTbl"); if(!el) return;
+  const fPrice = $("#rdCheap").checked, fLiq = $("#rdLiq").checked;
+  const list = RADAR.list.filter(c=>(!fPrice || c.price<0.01) && (!fLiq || c.liq>=10000));
+  $("#radarInfo").textContent = RADAR.at ? `${list.length} moedas · atualizado ${fmtDate(RADAR.at)}` : "carregando…";
+  el.innerHTML = list.length ? `<div style="overflow-x:auto"><table><tr><th>Moeda</th><th class="n">Preço (US$)</th><th class="n">Valor de mercado</th><th class="n">Liquidez</th><th class="n">Vol. 24h</th><th class="n">1h / 24h</th><th class="n">Idade</th><th class="n">Atenção</th><th class="n">Risco</th><th>Alertas</th><th></th></tr>${list.slice(0,60).map((c,i)=>{ const watched = (DB.settings.dexWatch||[]).some(w=>w.token===c.token); const url = /^https:\/\//.test(c.url||"") ? c.url : `https://dexscreener.com/${encodeURIComponent(c.chain)}/${encodeURIComponent(c.pool)}`;
+    return `<tr><td><b>${esc(c.sym)}</b><div class="mut" style="font-size:11px">${esc(c.chain)} · ${esc(c.token.slice(0,4))}…${esc(c.token.slice(-4))}</div></td><td class="n">${fmtPx(c.price,"")}</td><td class="n">${usdK(c.mcap||c.fdv)}</td><td class="n">${usdK(c.liq)}</td><td class="n">${usdK(c.vol24)}</td><td class="n"><span class="${c.ch1>=0?"up":"dn"}">${c.ch1.toFixed(0)}%</span> / <span class="${c.ch24>=0?"up":"dn"}">${c.ch24.toFixed(0)}%</span></td><td class="n">${c.age==null?"—":c.age<48?c.age.toFixed(0)+"h":(c.age/24).toFixed(0)+"d"}</td><td class="n"><span class="badge b-ac">${c.potential}</span></td><td class="n"><span class="badge ${c.risk>=60?"b-dn":c.risk>=35?"b-wr":"b-up"}">${c.risk}</span></td><td style="max-width:240px;font-size:11.5px;color:var(--tx2)">${esc(c.flags.join("; ")||"—")}</td><td style="white-space:nowrap"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">ver</a> ${watched?'<span class="badge b-n">acompanhando</span>':`<button class="btn sm" data-watch="${i}">Acompanhar</button>`}</td></tr>`; }).join("")}</table></div>` : `<div class="empty">${RADAR.at?"Nenhuma moeda passou nos filtros.":"Carregando radar…"}</div>`;
+  el.querySelectorAll("[data-watch]").forEach(b=>b.onclick=()=>watchCand(list[+b.dataset.watch]));
+  const st = radarStats();
+  $("#radarTrack").innerHTML = `<div class="kv" style="margin-top:0"><div>Destaques registrados</div><div>${st.n}</div>
+    <div>Conferidos após 24h · subiram · mediana</div><div>${st.n24} · ${st.up24==null?"—":(st.up24*100).toFixed(0)+"%"} · ${st.n24?pct(st.med24):"—"}</div>
+    <div>Conferidos após 7 dias · subiram · mediana</div><div>${st.n7} · ${st.up7==null?"—":(st.up7*100).toFixed(0)+"%"} · ${st.n7?pct(st.med7):"—"}</div>
+    <div>Viraram pó ou perderam a liquidez</div><div>${st.rug}</div>
+    <div>Nota de atenção alta × baixa (mediana 24h)</div><div>${st.hl24? pct(st.hl24[0])+" × "+pct(st.hl24[1]) : "precisa de 10 conferidos"}</div></div>
+    <p class="note">A cada 6 horas o radar guarda os 10 primeiros e confere o preço depois de 24 horas e de 7 dias. Se as notas altas não renderem mais que as baixas, a nota de atenção não serve para prever, e o MF Tracker vai mostrar isso aqui.</p>`;
+}
+const usdK = x => !x ? "—" : x>=1e9 ? "US$ "+(x/1e9).toFixed(2)+" bi" : x>=1e6 ? "US$ "+(x/1e6).toFixed(2)+" mi" : x>=1e3 ? "US$ "+(x/1e3).toFixed(1)+" mil" : "US$ "+x.toFixed(0);
+function watchCand(c){
+  if(!c) return; const sym = c.sym.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,10) || "TOKEN";
+  let s2 = sym; let k=2; while(ASSETS.some(a=>a.sym===s2)) s2 = sym+(k++);
+  DB.settings.dexWatch = DB.settings.dexWatch||[]; DB.settings.dexWatch.push({sym:s2, name:`${c.name} (${c.chain})`, chain:c.chain, pool:c.pool, token:c.token}); save();
+  toast(`${s2} adicionada. Recarregando para baixar o histórico por hora…`); setTimeout(()=>location.reload(), 1200);
+}
+async function watchByAddress(){
+  const addr = $("#rdAddr").value.trim(); if(!addr) return;
+  try{ const j = await getJSON("https://api.dexscreener.com/latest/dex/search?q="+encodeURIComponent(addr));
+    const pr = (j.pairs||[]).filter(p=>p.baseToken.address.toLowerCase()===addr.toLowerCase()).sort((x,y)=>(y.liquidity?.usd||0)-(x.liquidity?.usd||0))[0];
+    if(!pr){ toast("Não achei um par com esse contrato na DexScreener."); return; }
+    if(!GT_NET[pr.chainId]){ toast("Rede "+pr.chainId+" ainda não suportada para histórico."); return; }
+    watchCand(normDS(pr,"manual"));
+  }catch(e){ toast("Falha na busca: "+e.message); }
+}
+function radarMarkdown(){
+  const st = radarStats();
+  return `---
+tipo: painel
+gerado_por: MF Tracker ${VERSION}
+atualizado: ${isoBRT(RADAR.at||Date.now())}
+tags: [painel, memecoins, radar]
+---
+# Radar de memecoins (automático)
+_Regravado pelo programa. A nota de atenção mede volume, pressão de compra, momento e liquidez. Ela não é previsão de alta; o desempenho real dela está no fim desta nota._
+
+| Moeda | Rede | Contrato | Preço US$ | Valor de mercado | Liquidez | 24h | Idade | Atenção | Risco | Alertas |
+|---|---|---|---|---|---|---|---|---|---|---|
+${RADAR.list.slice(0,25).map(c=>`| ${String(c.sym).replace(/[|\n]/g," ")} | ${c.chain} | \`${c.token}\` | ${c.price} | ${usdK(c.mcap||c.fdv)} | ${usdK(c.liq)} | ${c.ch24.toFixed(0)}% | ${c.age==null?"—":c.age.toFixed(0)+"h"} | ${c.potential} | ${c.risk} | ${c.flags.join("; ")} |`).join("\n")}
+
+## Desempenho do próprio radar
+- Destaques registrados: ${st.n}; conferidos em 24h: ${st.n24} (subiram ${st.up24==null?"—":(st.up24*100).toFixed(0)+"%"}, mediana ${st.n24?pct(st.med24):"—"}); em 7 dias: ${st.n7} (mediana ${st.n7?pct(st.med7):"—"}).
+- Viraram pó ou perderam a liquidez: ${st.rug}.
+`;
+}
+
+/* ---------------- Interface ---------------- */
+let chart, candleS, s20, s50, volS;
+function initChart(){
+  if(!window.LightweightCharts){ $("#chart").innerHTML = '<div class="empty">Biblioteca de gráficos não carregou (sem internet?).</div>'; return; }
+  chart = LightweightCharts.createChart($("#chart"), {layout:{background:{color:"transparent"}, textColor:"#a9b2c3", fontFamily:"Inter"}, grid:{vertLines:{color:"#1a2130"}, horzLines:{color:"#1a2130"}}, rightPriceScale:{borderColor:"#222b3a"}, timeScale:{borderColor:"#222b3a"}, crosshair:{mode:0}, localization:{locale:"pt-BR"}});
+  candleS = chart.addCandlestickSeries({upColor:"#26c281", downColor:"#f0516a", borderVisible:false, wickUpColor:"#26c281", wickDownColor:"#f0516a"});
+  s20 = chart.addLineSeries({color:"#5b8cff", lineWidth:1.5, priceLineVisible:false, lastValueVisible:false});
+  s50 = chart.addLineSeries({color:"#a682ff", lineWidth:1.5, priceLineVisible:false, lastValueVisible:false});
+  volS = chart.addHistogramSeries({priceScaleId:"", priceFormat:{type:"volume"}, color:"#2c3748"});
+  volS.priceScale().applyOptions({scaleMargins:{top:0.82, bottom:0}});
+  new ResizeObserver(()=>chart.applyOptions({width:$("#chart").clientWidth})).observe($("#chart"));
+}
+function renderChart(a){
+  if(!chart) return;
+  const prec = a.live && a.live<0.01 ? 8 : a.live<1 ? 5 : 2;
+  candleS.applyOptions({priceFormat:{type:"price", precision:prec, minMove:Math.pow(10,-prec)}});
+  candleS.setData(a.candles.map(k=>({time:k.t, open:k.o, high:k.h, low:k.l, close:k.c})));
+  if(a.ind){ s20.setData(a.candles.map((k,i)=>({time:k.t, value:a.ind.sma20[i]})).filter(x=>isFinite(x.value))); s50.setData(a.candles.map((k,i)=>({time:k.t, value:a.ind.sma50[i]})).filter(x=>isFinite(x.value))); }
+  else { s20.setData([]); s50.setData([]); }
+  volS.setData(a.candles.map(k=>({time:k.t, value:k.v, color: k.c>=k.o ? "rgba(38,194,129,.35)" : "rgba(240,81,106,.35)"})));
+  const mk = DB.journal.filter(e=>e.sym===a.sym).map(e=>{ const t = a.candles.reduce((p,k)=> bk(a,k.t)<=bk(a,e.createdAt/1000)? k.t : p, a.candles[0]?.t);
+    return {time:t, position: e.dir>0?"belowBar":"aboveBar", color: e.status==="closed" ? (e.result.hit?"#26c281":"#f0516a") : "#f2b14a", shape: e.dir>0?"arrowUp":"arrowDown", text: e.status==="closed" ? (e.result.hit?"✓":"✗") : (e.prob*100).toFixed(0)+"%"}; }).sort((x,y)=>x.time-y.time);
+  candleS.setMarkers(mk);
+  chart.timeScale().fitContent();
+}
+function spark(a){
+  const c = a.candles.slice(-30).map(k=>k.c); if(c.length<2) return "";
+  const mn=Math.min(...c), mx=Math.max(...c), w=64, h=22; const pts = c.map((v,i)=>`${(i/(c.length-1)*w).toFixed(1)},${(h-(v-mn)/((mx-mn)||1)*h).toFixed(1)}`).join(" ");
+  const col = c[c.length-1]>=c[0] ? "#26c281" : "#f0516a";
+  return `<svg class="spark" width="${w}" height="${h}"><polyline fill="none" stroke="${col}" stroke-width="1.4" points="${pts}"/></svg>`;
+}
+function dayChange(a){ const n=a.candles.length, back = tfOf(a)===3600 ? 24 : 1; if(n<=back) return null; return a.candles[n-1].c/a.candles[n-1-back].c-1; }
+function sigBadge(a){
+  const an=a.analysis; if(!an || an.err || !an.best) return `<span class="badge b-n">${an&&an.err?"—":"…"}</span>`;
+  if(an.isOpp) return `<span class="badge ${an.dir>0?"b-up":"b-dn"}">${an.dir>0?"▲":"▼"} ${(an.p*100).toFixed(0)}%</span>`;
+  return `<span class="badge b-n">${an.dir>0?"▲":"▼"} ${(an.p*100).toFixed(0)}%</span>`;
+}
+function renderSide(){
+  let h="";
+  for(const cls of Object.keys(CLASSES)){
+    const list = ASSETS.filter(a=>a.cls===cls); if(!list.length) continue;
+    const open = cls==="b3"? (b3Open()?"aberta":"fechada") : cls==="us"? (usOpen()?"aberta":"fechada") : cls==="fx"?"":"24h";
+    h += `<div class="grp"><span>${CLASSES[cls].label}</span><span>${open}</span></div>`;
+    for(const a of list){ const ch = dayChange(a);
+      h += `<div class="asset ${a.sym===SEL?"on":""}" data-s="${esc(a.sym)}"><div><div class="nm">${esc(a.sym)}</div><div class="sub">${esc(a.name)}</div></div><div>${spark(a)}</div><div class="px">${a.err&&!a.candles.length?'<span class="dn" title="'+esc(a.err)+'">erro</span>':fmtPx(a.live ?? a.candles.at(-1)?.c, "")}<div class="ch ${ch>=0?"up":"dn"}">${ch==null?"":pct(ch)}</div><div style="margin-top:2px">${sigBadge(a)}</div></div></div>`; }
+  }
+  $("#side").innerHTML = h;
+  document.querySelectorAll(".asset").forEach(el=>el.onclick=()=>{ SEL=el.dataset.s; renderSide(); renderPanel(true); });
+}
+function facBar(v){ const w=Math.abs(v)*50; return `<div class="bar"><i style="${v>=0?`left:50%;width:${w}%;background:var(--up)`:`left:${50-w}%;width:${w}%;background:var(--dn)`}"></i></div>`; }
+function renderPanel(chartToo){
+  const a = ASSETS.find(x=>x.sym===SEL) || ASSETS[0]; if(!a) return;
+  $("#aName").textContent = a.name; $("#aMeta").textContent = `${a.sym} · ${CLASSES[a.cls].label} · fonte: ${({coinbase:"Coinbase (tempo real)",brapi:"brapi.dev (B3, pode ter atraso)",twelve:"Twelve Data (EUA)",awesome:"AwesomeAPI (câmbio)",gecko:"GeckoTerminal + DexScreener (candles por hora)"})[a.src]}${a.cls==="dex"? ` · liquidez US$ ${a.liq?Math.round(a.liq).toLocaleString("pt-BR"):"—"} · contrato ${a.token.slice(0,6)}…${a.token.slice(-6)}`:""}`;
+  const px = a.live ?? a.candles.at(-1)?.c; $("#aPrice").textContent = fmtPx(px, a.cur);
+  const ch = dayChange(a); $("#aChg").innerHTML = ch==null?"":`<span class="${ch>=0?"up":"dn"}">${pct(ch)} no dia</span>`;
+  $("#aFresh").textContent = a.liveAt ? `preço de ${fmtDate(a.liveAt)}${liveFresh(a)?"":" (desatualizado / mercado fechado)"}` : (a.err? "erro: "+a.err : "carregando…");
+  if(chartToo) renderChart(a);
+  const an = a.analysis;
+  if(!an || an.err && !an.best){ $("#factors").innerHTML = `<div class="empty">${esc(an?an.err:"carregando…")}</div>`; $("#oppBox").innerHTML=""; $("#scoreTxt").textContent=""; }
+  else{
+    $("#scoreTxt").textContent = `pontuação técnica ${an.sTech>=0?"+":""}${an.sTech.toFixed(2)} · total ${an.sAll>=0?"+":""}${an.sAll.toFixed(2)}`;
+    $("#factors").innerHTML = FACTORS.map(f=>{ const v=an.fNow[f.k]||0; return `<div class="fac"><div class="n">${f.n}${f.bt?"":' <span class="badge b-wr" title="Ainda não testado no histórico">não calibrado</span>'}<small>${f.d} · peso ${DB.weights[f.k].toFixed(2)}</small></div>${facBar(v)}<div class="v ${v>0.05?"up":v<-0.05?"dn":"mut"}">${v>=0?"+":""}${v.toFixed(2)}</div></div>`; }).join("")
+      + `<p class="note">Cada fator vai de −1 (pressão de queda) a +1 (pressão de alta). A chance não vem da pontuação diretamente: vem de quantas vezes, no histórico deste ativo, situações parecidas terminaram na direção prevista.</p>`;
+    const b = an.best;
+    $("#oppBox").innerHTML = `<div class="opp ${an.isOpp?(an.dir>0?"long":"short"):""}">
+      <div style="display:flex;justify-content:space-between;align-items:center"><div class="big">${an.isOpp?`<span class="badge ${an.dir>0?"b-up":"b-dn"}" style="font-size:12px">OPORTUNIDADE</span>`:`<span class="badge b-n" style="font-size:12px">SEM OPORTUNIDADE</span>`} <span class="${an.dir>0?"up":"dn"}">${an.dir>0?"▲ Alta":"▼ Queda"}</span></div><span class="mut" style="font-size:12px">prazo ${b.h} ${unitOf(a)}</span></div>
+      <div style="margin-top:12px;display:flex;justify-content:space-between;font-size:12.5px"><span>Chance estimada de dar certo</span><span class="mono">${(an.p*100).toFixed(1)}%</span></div>
+      <div class="prob"><i style="width:${an.p*100}%"></i><b style="left:${b.base*100}%" title="taxa base"></b></div>
+      <div style="font-size:11.5px;color:var(--mut);margin-top:4px">Linha amarela: taxa base ${(b.base*100).toFixed(0)}% (quanto essa direção acerta sem filtro algum). Vantagem: <span class="${an.edge>0?"up":"dn"}">${(an.edge*100).toFixed(1)} p.p.</span></div>
+      <div class="kv">
+        <div>Fração da banca (1/4 de Kelly)</div><div>${an.frac>0? (an.frac*100).toFixed(1)+"%" : '<span class="mut">0% (sem vantagem)</span>'}</div>
+        <div>Retorno esperado (média dos casos)</div><div class="${b.exp>0?"up":"dn"}">${pct(b.exp)}</div>
+        <div>Retorno possível no alvo</div><div>${pct(b.medWin)}</div>
+        <div>Alvo · Stop teórico</div><div>${fmtPx(an.target,a.cur)} · ${fmtPx(an.stop,a.cur)}</div>
+        <div>Casos semelhantes no histórico</div><div>${b.n} <span class="mut">(pior: ${pct(b.worst)})</span></div>
+        <div>Ajuste por notícias / contexto</div><div>${pct(an.adjNews,1)} / ${pct(an.adjMacro,1)}</div>
+        ${an.cal.shift?`<div>Correção pelo histórico de acertos</div><div>${pct(an.cal.shift,1)}</div>`:""}
+      </div>
+      ${an.frac>0? bankTable(an.banks) : ""}
+      ${an.isOpp? `<p class="note">${marketOpen(a)?(liveFresh(a)?"Registrada automaticamente no diário.":"Aguardando preço atualizado para registrar."):"Mercado fechado: será registrada quando abrir, se o sinal continuar."}</p>` : `<p class="note">Não registrada porque ${esc(an.why.join("; "))}.</p>`}
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn sm" id="btnManual">Registrar mesmo assim (manual)</button><button class="btn sm" id="btnHz">Ver todos os prazos</button></div>
+    </div>`;
+    $("#btnManual").onclick = ()=>{ autoLog(a.sym); };
+    $("#btnHz").onclick = ()=>openHorizons(a);
+  }
+  // notícias do ativo
+  const ns = newsFor(a).slice(0,8);
+  $("#newsAssetInfo").textContent = an && an.ns ? `sentimento ${an.ns.score>=0?"+":""}${an.ns.score.toFixed(2)} · ${an.ns.n} em 72h` : "";
+  $("#newsAsset").innerHTML = ns.length ? ns.map(newsItem).join("") : `<div class="empty">Nenhuma manchete recente cita ${esc(a.sym)} nas fontes acompanhadas.</div>`;
+  // contexto
+  const mc = an && an.mc ? an.mc : macroScore(a);
+  const fng = CTX.fng;
+  $("#ctxBox").innerHTML = `<div class="kv" style="margin-top:0">
+    <div>Índice Medo & Ganância (cripto)</div><div>${fng? `${fng.v} · ${esc(trFng(fng.cls))}`:"—"}</div>
+    <div>Mercado cripto total 24h</div><div>${CTX.global? `<span class="${CTX.global.mcapChg>=0?"up":"dn"}">${pct(CTX.global.mcapChg/100)}</span> · BTC ${CTX.global.btcDom.toFixed(1)}% do mercado`:"—"}</div>
+    <div>Dólar (USD/BRL)</div><div>${CTX.usdbrl? `R$ ${CTX.usdbrl.bid.toFixed(4)} <span class="${CTX.usdbrl.pct>=0?"up":"dn"}">${pct(CTX.usdbrl.pct/100)}</span>`:"—"}</div>
+    <div>Selic (meta, BCB)</div><div>${CTX.selic!=null? CTX.selic+"%":"—"}</div>
+    <div>Leitura para ${esc(a.sym)}</div><div style="white-space:normal;max-width:260px">${esc(mc.txt)}</div>
+  </div>
+  <p class="note">${psychNote(a, fng)}</p>`;
+}
+function bankTable(banks){
+  return `<div style="overflow-x:auto;margin-top:12px"><table><tr><th>Banca</th><th class="n">Valor</th><th class="n">Esperado</th><th class="n">No alvo</th><th class="n">No stop</th></tr>${banks.map(b=>`<tr><td>${brl(b.bank)}</td>${b.ok? `<td class="n">${brl(b.amount)}</td><td class="n ${b.exp>=0?"up":"dn"}">${brl(b.exp)}</td><td class="n">${brl(b.possible)}</td><td class="n dn">${brl(-b.maxLoss)}</td>` : `<td colspan="4" class="mut" style="font-size:12px">não opera: ${esc(b.why)}${b.amount>0?` (seria ${brl(b.amount)})`:""}</td>`}</tr>`).join("")}</table></div><p class="note" style="margin-top:6px">Valores já descontam custos fixos e, em DEX, o deslizamento estimado pela liquidez do pool.</p>`;
+}
+function trFng(c){ return ({"Extreme Fear":"Medo extremo","Fear":"Medo","Neutral":"Neutro","Greed":"Ganância","Extreme Greed":"Ganância extrema"})[c]||c; }
+function psychNote(a, fng){
+  if((a.cls==="crypto"||a.cls==="meme") && fng){
+    if(fng.v<=20) return "Psicologia: medo extremo. Historicamente, quando a maioria vende por medo (aversão à perda, efeito manada), o risco de comprar cai, mas quedas podem continuar. O fator é contrário à multidão.";
+    if(fng.v>=80) return "Psicologia: ganância extrema. FOMO e excesso de confiança costumam anteceder correções. O fator pesa contra compras.";
+    return "Psicologia: humor do mercado sem extremos; o fator pesa pouco.";
+  }
+  const I=a.ind; if(!I) return ""; const i=I.C.length-1;
+  return `Psicologia (aproximação por preço): ${Math.abs(I.streak[i])} ${I.streak[i]>=0?"altas":"quedas"} seguidas, ${(I.dd[i]*100).toFixed(1)}% abaixo da máxima de 52 semanas. Sequências longas e quedas fundas indicam capitulação ou euforia do investidor.`;
+}
+function newsItem(n){ const cls = n.s>0.15?"b-up":n.s<-0.15?"b-dn":"b-n"; const link = /^https:\/\//.test(n.link||"") ? n.link : null;
+  return `<div class="ni"><div class="s badge ${cls}">${n.s>=0?"+":""}${n.s.toFixed(2)}</div><div><div class="tt">${link?`<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a>`:esc(n.title)}</div><div class="src">${esc(n.src)} · ${fmtDate(n.ts)}</div></div></div>`; }
+function openHorizons(a){
+  const an=a.analysis; const rows = an.res.map(r=> r.insufficient ? `<tr><td>${r.h}</td><td colspan="5" class="mut">só ${r.n} casos semelhantes</td></tr>` : `<tr><td>${r.h}</td><td class="n">${r.n}</td><td class="n">${(r.p0*100).toFixed(1)}%</td><td class="n">${(r.base*100).toFixed(1)}%</td><td class="n ${r.exp>0?"up":"dn"}">${pct(r.exp)}</td><td class="n">${pct(r.medWin)} / -${(r.avgLoss*100).toFixed(2)}%</td></tr>`).join("");
+  drawer(`<h2 style="margin-top:0">${esc(a.sym)}: análise por prazo</h2><p class="note">Direção avaliada: ${an.dir>0?"alta":"queda"}. Chance bruta = casos semelhantes que terminaram na direção prevista, já descontados custos de ${(an.cost*100).toFixed(1)}%. O prazo escolhido é o de melhor retorno esperado por raiz do tempo.</p>
+  <table><tr><th>Prazo</th><th class="n">Casos</th><th class="n">Chance bruta</th><th class="n">Taxa base</th><th class="n">Retorno médio</th><th class="n">Ganho típico / perda média</th></tr>${rows}</table>
+  <p class="note">Sinal técnico atual: ${an.sTech.toFixed(3)}. Casos semelhantes = dias em que a pontuação técnica ficou na mesma direção e a menos de ±${an.best?an.best.band.toFixed(2):"?"} da atual.</p>`);
+}
+function drawer(html){ $("#drawerIn").innerHTML = `<div style="text-align:right"><button class="btn sm" id="dClose">Fechar</button></div>`+html; $("#drawer").classList.add("on"); $("#dClose").onclick=()=>$("#drawer").classList.remove("on"); }
+$("#drawer").onclick = e=>{ if(e.target.id==="drawer") $("#drawer").classList.remove("on"); };
+
+function renderJournal(){
+  const open = DB.journal.filter(e=>e.status==="open"), closed = DB.journal.filter(e=>e.status==="closed");
+  $("#cntOpen").textContent = open.length;
+  const now = Date.now();
+  $("#openTbl").innerHTML = open.length ? `<table><tr><th>Registro</th><th>Ativo</th><th>Direção</th><th class="n">Entrada</th><th class="n">Agora</th><th class="n">Parcial</th><th class="n">Fração</th><th class="n">Retorno esperado</th><th class="n">Chance</th><th>Vence</th></tr>${open.map(e=>{ const a=ASSETS.find(x=>x.sym===e.sym); const cur=a? (a.live??a.candles.at(-1)?.c):null; const pr = cur? e.dir*(cur/e.entry-1)-e.cost : null;
+    return `<tr class="clk" data-id="${e.id}"><td>${fmtDate(e.createdAt)}${e.manual?' <span class="badge b-ac">manual</span>':""}</td><td><b>${esc(e.sym)}</b></td><td class="${e.dir>0?"up":"dn"}">${e.dir>0?"▲ Alta":"▼ Queda"}</td><td class="n">${fmtPx(e.entry,e.cur)}</td><td class="n">${fmtPx(cur,e.cur)}</td><td class="n ${pr>=0?"up":"dn"}">${pr==null?"—":pct(pr)}</td><td class="n">${e.frac!=null? (e.frac*100).toFixed(1)+"%" : brl(e.amount)}</td><td class="n">${pct(e.exp)}</td><td class="n">${(e.prob*100).toFixed(0)}%</td><td>${fmtDate(e.deadline)}<div class="mut" style="font-size:11px">${e.deadline>now? "em "+humanDur(e.deadline-now) : "vencida, aguardando preço"}</div></td></tr>`; }).join("")}</table>` : `<div class="empty">Nenhuma oportunidade em aberto. Elas aparecem aqui sozinhas quando o modelo encontra um sinal que passa nos filtros.</div>`;
+  $("#closedTbl").innerHTML = closed.length ? `<table><tr><th>Ativo</th><th>Direção</th><th class="n">Chance</th><th class="n">Resultado</th><th class="n">P&L na banca R$ 1.000</th><th>Alvo</th><th>Avaliada</th><th>Principal lição</th></tr>${closed.map(e=>`<tr class="clk" data-id="${e.id}"><td><b>${esc(e.sym)}</b></td><td class="${e.dir>0?"up":"dn"}">${e.dir>0?"▲":"▼"}</td><td class="n">${(e.prob*100).toFixed(0)}%</td><td class="n"><span class="badge ${e.result.hit?"b-up":"b-dn"}">${e.result.hit?"ACERTO":"ERRO"}</span> ${pct(e.result.retNet)}</td><td class="n ${e.result.pnl>=0?"up":"dn"}">${brl(pnlFor(e,1000))}</td><td>${e.result.targetHit?"tocado":"não"}</td><td>${fmtDate(e.result.evaluatedAt)}</td><td style="max-width:340px;color:var(--tx2)">${esc(e.result.lessons[1]||e.result.lessons[0])}</td></tr>`).join("")}</table>` : `<div class="empty">Nada encerrado ainda. A primeira avaliação acontece quando vencer o prazo da primeira oportunidade.</div>`;
+  document.querySelectorAll("tr.clk").forEach(tr=>tr.onclick=()=>openEntry(tr.dataset.id));
+}
+function pnlFor(e, bank){ const r=e.result; if(!r) return 0; const br=(r.bankRes||[]).find(b=>b.bank===bank); return br? br.pnl : (bank===1000? r.pnl : 0); }
+function humanDur(ms){ const h=ms/3600000; return h<48? Math.round(h)+"h" : Math.round(h/24)+" dias"; }
+function openEntry(id){
+  const e = DB.journal.find(x=>x.id===id); if(!e) return; const r=e.result;
+  drawer(`<h2 style="margin:0 0 4px">${esc(e.sym)} · ${e.dir>0?'<span class="up">▲ Alta</span>':'<span class="dn">▼ Queda</span>'}</h2><div class="mut">${esc(e.name)} · registrada em ${fmtDate(e.createdAt)}${e.manual?" (manual)":""}</div>
+  <div class="kv"><div>Entrada simulada</div><div>${fmtPx(e.entry,e.cur)}</div><div>Fração da banca</div><div>${e.frac!=null?(e.frac*100).toFixed(1)+"%":brl(e.amount)}</div><div>Chance prevista</div><div>${(e.prob*100).toFixed(1)}% <span class="mut">(histórico ${(e.probBase*100).toFixed(1)}%, base ${(e.baseRate*100).toFixed(1)}%, ${e.analogs} casos)</span></div>
+  <div>Retorno esperado</div><div>${pct(e.exp)}</div><div>Retorno possível no alvo</div><div>${pct(e.dir*(e.target/e.entry-1))}</div>
+  <div>Alvo · Stop</div><div>${fmtPx(e.target,e.cur)} · ${fmtPx(e.stop,e.cur)}</div><div>Prazo</div><div>${e.horizon} ${unitOf(e)} · vence ${fmtDate(e.deadline)}</div>
+  <div>Contexto no registro</div><div>${e.ctx.fng!=null?"Medo&Ganância "+e.ctx.fng+" · ":""}${e.ctx.usdbrl?"USD "+e.ctx.usdbrl.toFixed(2):""}</div></div>
+  ${r? `<h3 style="margin-top:20px">Resultado</h3><div class="kv"><div>Saída</div><div>${fmtPx(r.exit,e.cur)}</div><div>Resultado líquido</div><div class="${r.hit?"up":"dn"}">${pct(r.retNet)} · ${brl(r.pnl)}</div><div>Melhor / pior momento</div><div>${pct(r.mfe)} / ${pct(-r.mae)}</div><div>Alvo tocado · Stop tocado</div><div>${r.targetHit?"sim":"não"} · ${r.stopHit?"sim":"não"}</div></div>
+  <h3 style="margin-top:20px">Resultado por banca</h3><div style="overflow-x:auto"><table><tr><th>Banca</th><th class="n">Valor</th><th class="n">P&L</th></tr>${(r.bankRes||[]).map(b=>`<tr><td>${brl(b.bank)}</td><td class="n">${b.ok?brl(b.amount):'<span class="mut">'+esc(b.why)+'</span>'}</td><td class="n ${b.pnl>=0?"up":"dn"}">${b.ok?brl(b.pnl):"—"}</td></tr>`).join("")}</table></div>
+  <h3 style="margin-top:20px">Análise pós-vencimento</h3>${r.lessons.map(l=>`<div class="lesson">${esc(l)}</div>`).join("")}` : ""}
+  ${!r && e.banks? `<h3 style="margin-top:20px">Plano por banca</h3>${bankTable(e.banks)}` : ""}
+  <h3 style="margin-top:20px">Fatores no momento do registro</h3>${FACTORS.map(f=>{ const v=e.factors[f.k]||0; const ev = r? r.factorEval[f.k] : undefined; return `<div class="fac"><div class="n">${f.n}<small>peso ${(e.weights[f.k]||0).toFixed(2)}</small></div>${facBar(v)}<div class="v">${v.toFixed(2)} ${ev===true?'<span class="up">✓</span>':ev===false?'<span class="dn">✗</span>':""}</div></div>`; }).join("")}
+  ${e.news && e.news.length ? `<h3 style="margin-top:20px">Notícias consideradas</h3>${e.news.map(n=>`<div class="lesson">[${n.s.toFixed(2)}] ${esc(n.t)} <span class="mut">(${esc(n.src)})</span></div>`).join("")}` : ""}`);
+}
+let eqChart;
+function renderPerf(){
+  const closed = DB.journal.filter(e=>e.status==="closed").sort((a,b)=>a.result.evaluatedAt-b.result.evaluatedAt);
+  const n = closed.length, hits = closed.filter(e=>e.result.hit).length;
+  const pnl = closed.reduce((s,e)=>s+e.result.pnl,0);
+  const brier = n? mean(closed.map(e=>(e.prob-(e.result.hit?1:0))**2)) : NaN;
+  const predAvg = n? mean(closed.map(e=>e.prob)) : NaN;
+  const open = DB.journal.filter(e=>e.status==="open").length;
+  $("#kpis").innerHTML = [
+    ["Previsões avaliadas", n, `${open} em aberto`],
+    ["Taxa de acerto", n? (hits/n*100).toFixed(1)+"%":"—", n? `chance média prevista ${(predAvg*100).toFixed(1)}%`:"aguardando vencimentos"],
+    ["Resultado na banca R$ 1.000", n? brl(closed.reduce((s,e)=>s+pnlFor(e,1000),0)):"—", n? "veja todas as bancas abaixo":""],
+    ["Brier score", n? brier.toFixed(3):"—", "menor é melhor · 0,250 = chute"],
+  ].map(([l,v,s])=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+  // bancas
+  const BK = DB.settings.banks||[];
+  $("#banksTbl").innerHTML = `<div style="overflow-x:auto"><table><tr><th>Banca inicial</th><th class="n">Atual</th><th class="n">Retorno</th><th class="n">Operou</th><th class="n">Não operou</th><th>Principal motivo para não operar</th></tr>${BK.map(bank=>{ let eq=bank, ops=0, skip=0; const why={}; closed.forEach(e=>{ const br=(e.result.bankRes||[]).find(b=>b.bank===bank); if(!br) return; if(br.ok){ ops++; eq+=br.pnl; } else { skip++; why[br.why]=(why[br.why]||0)+1; } }); const top=Object.entries(why).sort((a,b)=>b[1]-a[1])[0];
+    return `<tr><td>${brl(bank)}</td><td class="n">${brl(eq)}</td><td class="n ${eq>=bank?"up":"dn"}">${pct(eq/bank-1)}</td><td class="n">${ops}</td><td class="n">${skip}</td><td class="mut">${top?esc(top[0]):"—"}</td></tr>`; }).join("")}</table></div><p class="note">Cada banca roda separada, com a mesma fração de Kelly. Bancas pequenas sofrem mais com valor mínimo por ordem e custos fixos, e isso aparece aqui.</p>`;
+  // patrimônio
+  if(window.LightweightCharts){
+    if(!eqChart){ eqChart = LightweightCharts.createChart($("#equity"), {height:240, layout:{background:{color:"transparent"}, textColor:"#a9b2c3"}, grid:{vertLines:{color:"#1a2130"}, horzLines:{color:"#1a2130"}}, rightPriceScale:{borderColor:"#222b3a"}, timeScale:{borderColor:"#222b3a"}}); eqChart._s = {}; eqChart.applyOptions({rightPriceScale:{borderColor:"#222b3a"}, localization:{priceFormatter:v=>v.toFixed(1)+"%"}}); new ResizeObserver(()=>eqChart.applyOptions({width:$("#equity").clientWidth})).observe($("#equity")); }
+    const COLS = ["#f0516a","#f2b14a","#e3d35b","#26c281","#3fc1c9","#5b8cff","#a682ff","#d77bd6"];
+    let any=false;
+    BK.forEach((bank,bi)=>{ if(!eqChart._s[bank]) eqChart._s[bank] = eqChart.addLineSeries({color:COLS[bi%COLS.length], lineWidth:2, priceLineVisible:false, title:"R$ "+bank});
+      let eq=bank, lastT=0; const pts=[]; closed.forEach(e=>{ eq += pnlFor(e,bank); let t=Math.floor(e.result.evaluatedAt/1000); if(t<=lastT) t=lastT+1; lastT=t; pts.push({time:t, value:(eq/bank-1)*100}); });
+      eqChart._s[bank].setData(pts); any = any || pts.length>0; });
+    if(any) eqChart.timeScale().fitContent();
+    if(!pts.length) $("#equity").setAttribute("title","Sem dados ainda");
+  }
+  // calibração
+  const buckets = [[0.5,0.6],[0.6,0.7],[0.7,0.8],[0.8,1.01]];
+  $("#calib").innerHTML = `<table><tr><th>Faixa prevista</th><th class="n">Casos</th><th class="n">Acerto real</th><th>Leitura</th></tr>${buckets.map(([lo,hi])=>{ const b = closed.filter(e=>e.prob>=lo&&e.prob<hi); const r = b.length? b.filter(e=>e.result.hit).length/b.length : null; const mid=(lo+Math.min(hi,1))/2;
+    return `<tr><td>${(lo*100).toFixed(0)}–${(Math.min(hi,1)*100).toFixed(0)}%</td><td class="n">${b.length}</td><td class="n">${r==null?"—":(r*100).toFixed(0)+"%"}</td><td class="mut">${r==null?"sem casos": b.length<8?"poucos casos, inconclusivo": Math.abs(r-mid)<0.08?"bem calibrado": r<mid?"confiante demais":"conservador demais"}</td></tr>`; }).join("")}</table><p class="note">Um modelo bem calibrado acerta cerca de 60% das vezes quando diz 60%. Com menos de 30 casos, qualquer conclusão é fraca.</p>`;
+  // pesos
+  $("#weights").innerHTML = FACTORS.map(f=>{ const w=DB.weights[f.k], d=DEFAULT_W[f.k]; const ev = closed.map(e=>e.result.factorEval[f.k]).filter(x=>x!=null); const acc = ev.length? ev.filter(Boolean).length/ev.length : null;
+    return `<div class="fac"><div class="n">${f.n}<small>inicial ${d.toFixed(2)}${acc!=null?` · acertou ${(acc*100).toFixed(0)}% de ${ev.length}`:""}</small></div><div class="bar"><i style="left:0;width:${w/3*100}%;background:${w>=d?"var(--ac)":"var(--wr)"}"></i></div><div class="v">${w.toFixed(2)}</div></div>`; }).join("");
+  // por ativo
+  const by = {}; closed.forEach(e=>{ const k=e.sym; by[k]=by[k]||{n:0,h:0,p:0,cls:e.cls}; by[k].n++; by[k].h+=e.result.hit?1:0; by[k].p+=e.result.pnl; });
+  const ks = Object.keys(by);
+  $("#byAsset").innerHTML = ks.length? `<table><tr><th>Ativo</th><th>Classe</th><th class="n">Casos</th><th class="n">Acerto</th><th class="n">P&L</th></tr>${ks.sort((x,y)=>by[y].n-by[x].n).map(k=>`<tr><td><b>${esc(k)}</b></td><td>${CLASSES[by[k].cls].label}</td><td class="n">${by[k].n}</td><td class="n">${(by[k].h/by[k].n*100).toFixed(0)}%</td><td class="n ${by[k].p>=0?"up":"dn"}">${brl(by[k].p)}</td></tr>`).join("")}</table>` : `<div class="empty">Sem previsões encerradas.</div>`;
+  // autoanálise
+  const notes = [];
+  if(n<30) notes.push(`Amostra pequena: ${n} ${n===1?"previsão avaliada":"previsões avaliadas"}. Com menos de 30, a taxa de acerto pode ser sorte ou azar. Não tire conclusões ainda e, principalmente, não use dinheiro real.`);
+  if(n>=10){ const c=calibrationShift(); notes.push(`O modelo previu em média ${(c.pred*100).toFixed(1)}% e acertou ${(c.act*100).toFixed(1)}%. Por isso as próximas chances estão sendo corrigidas em ${pct(c.shift,1)}.`); }
+  if(n>=10 && brier>=0.25) notes.push("O Brier score está pior ou igual a um chute de 50%. Até agora o modelo não tem vantagem comprovada.");
+  if(n>=10 && brier<0.25) notes.push("O Brier score está melhor que um chute, mas confirme se isso se mantém com mais casos e em mercados diferentes.");
+  const tops = FACTORS.map(f=>({f, w:DB.weights[f.k]/DEFAULT_W[f.k]})).sort((a,b)=>b.w-a.w);
+  if(n>=5) notes.push(`Fator que mais ganhou confiança: ${tops[0].f.n} (×${tops[0].w.toFixed(2)}). Que mais perdeu: ${tops.at(-1).f.n} (×${tops.at(-1).w.toFixed(2)}).`);
+  const tHit = closed.filter(e=>!e.result.hit && e.result.targetHit).length; if(tHit>=2) notes.push(`${tHit} erros tocaram o alvo antes de reverter. Realização parcial no alvo provavelmente melhora o resultado.`);
+  notes.push("Lembrete permanente: a chance é uma estimativa estatística baseada no passado. Mercado muda de regime, e notícias inesperadas não aparecem no histórico.");
+  $("#selfAn").innerHTML = notes.map(x=>`<div class="lesson">${esc(x)}</div>`).join("");
+}
+function renderNews(){
+  $("#newsInfo").textContent = NEWS.length ? `${NEWS.length} manchetes · ${FEEDS.map(f=>f.n).join(", ")} · atualizado ${DB.cache.news?fmtDate(DB.cache.news.at):""}` : "";
+  $("#newsAll").innerHTML = NEWS.length ? NEWS.slice(0,80).map(n=>{ const tags = ASSETS.filter(a=>(KW[a.sym]||[]).some(r=>r.test(n.title+" "+n.desc))).map(a=>`<span class="pill">${esc(a.sym)}</span>`).join(""); return newsItem(n).replace('</div></div></div>', `</div>${tags?`<div style="margin-top:4px">${tags}</div>`:""}</div></div>`); }).join("") : `<div class="empty">Carregando notícias…</div>`;
+}
+function renderFeeds(){
+  const groups = [["Cripto",["coinbase"]],["B3",["brapi"]],["EUA",["twelve"]],["Câmbio",["awesome"]],["DEX",["gecko","dexscreener"]],["Notícias",Object.keys(FEED).filter(k=>k.startsWith("news:"))],["Sentimento",["fng"]]];
+  $("#feeds").innerHTML = groups.map(([n,ks])=>{ const st = ks.map(k=>FEED[k]).filter(Boolean); const cls = !st.length?"wait": st.every(s=>s.ok)?"ok": st.some(s=>s.ok)?"wait":"err"; const tip = st.map((s,i)=>`${ks[i]}: ${s.ok?"ok "+fmtDate(s.at):"erro "+s.e}`).join("\n"); return `<span title="${esc(tip)}"><span class="dot ${cls}"></span>${n}</span>`; }).join("") + `<span><span id="vaultDot" class="dot"></span>Obsidian</span>`; renderVault();
+}
+function renderMethod(){
+  $("#methodBox").innerHTML = `<h3>Como o MF Tracker pensa (v${VERSION})</h3>
+  <p>O objetivo desta fase é <b>provar ou desmentir</b> que o modelo tem vantagem, sem arriscar dinheiro. Tudo é simulação.</p>
+  <h4>1. Dados reais</h4><ul><li>Cripto e memecoins: Coinbase, preço em tempo real a cada 20 segundos e candles diários.</li><li>B3: brapi.dev (cotação pode ter atraso de até 15–30 min no plano grátis).</li><li>EUA: Twelve Data (fechamento diário e cotação; sem chave só AAPL e QQQ).</li><li>Câmbio: AwesomeAPI. Juros: Banco Central (Selic). Humor do mercado cripto: índice Medo & Ganância (alternative.me). Mercado cripto total: CoinGecko.</li><li>Notícias: InfoMoney, Money Times, CoinDesk e Cointelegraph, lidas a cada 15 minutos.</li></ul>
+  <h4>2. Nove fatores</h4><p>Tendência, momento, exaustão (RSI), desvio da média (Bollinger), fluxo de volume, psicologia, nicho, notícias e contexto global. Cada um vira um número de −1 a +1. A soma ponderada pelos pesos aprendidos dá a pontuação.</p>
+  <h4>3. A chance vem do histórico, não de achismo</h4><p>Para cada ativo, o modelo recalcula a pontuação técnica em cada dia do último ano e procura os dias parecidos com hoje. A chance é a proporção desses casos que terminaram na direção prevista depois de 3, 7 ou 14 dias, já descontando custos, com suavização de Laplace. A <b>taxa base</b> mostra quanto essa direção acerta sem filtro algum: se a chance não supera a taxa base, o sinal não acrescenta nada e a oportunidade não é registrada.</p>
+  <h4>4. Valor simulado</h4><p>Critério de Kelly fracionado (padrão: 1/4 de Kelly, máximo 10% da banca virtual). Esse método só aposta mais quando a vantagem estimada e a relação ganho/perda justificam.</p>
+  <h4>5. Psicologia e neurociência</h4><p>Não existe uma fonte de dados de "neurociência" do mercado. O que dá para medir são os efeitos dos vieses humanos no preço: aversão à perda e efeito manada aparecem como medo extremo e capitulação (sequências de queda, distância da máxima); excesso de confiança e FOMO aparecem como ganância extrema e euforia. O fator de psicologia é <b>contrário à multidão</b> nesses extremos. O próprio MF Tracker também se protege de vieses: registra <b>todas</b> as oportunidades automaticamente (sem escolher só as boas), com prazo fixo, e avalia sem você poder apagar os erros.</p>
+  <h4>6. Avaliação e aprendizado</h4><p>No vencimento, o MF Tracker busca o preço real, calcula o resultado líquido, o melhor e o pior momento, se o alvo ou o stop foram tocados, e verifica fator por fator quem apontou certo. Os pesos dos fatores são ajustados (atualização multiplicativa), e a diferença entre chance prevista e acerto real corrige as próximas previsões. Se o app ficar fechado, a avaliação acontece na próxima vez que abrir, usando o preço histórico do dia do vencimento.</p>
+  <h4>7. Bancas simuladas</h4><p>A mesma operação roda em paralelo em várias bancas (padrão: R$ 50, 100, 300, 500, 1.000, 2.500, 5.000 e 10.000), com a mesma fração de Kelly. O programa respeita o valor mínimo de cada ordem (1 ação na B3, cerca de R$ 10 em cripto e EUA, R$ 5 em DEX) e desconta custos fixos e o deslizamento de preço em pools pequenos. Por isso uma banca pequena às vezes não consegue entrar, e isso fica registrado.</p>
+  <h4>8. Memecoins novas (DEX)</h4><p>O radar lê os pools em tendência e os novos da GeckoTerminal e as moedas impulsionadas da DexScreener. Moedas acompanhadas usam candles por hora e prazos de 6, 24 e 72 horas, porque quase não têm histórico diário. Previsões de queda nessas moedas ficam só como previsão, porque não dá para vender a descoberto numa DEX. Se a liquidez despencar, a análise registra o risco de golpe.</p>
+  <h4>Limites conhecidos (sinceridade)</h4><ul>
+  <li>Memecoins novas têm poucas centenas de horas de histórico e são dominadas por baleias, bots e notícias de redes sociais que o programa ainda não lê (X/Telegram). Qualquer chance calculada para elas é bem menos confiável.</li>
+  <li>Notícias e contexto global ainda <b>não têm calibração histórica</b> (não temos manchetes antigas). Por isso entram só como ajuste pequeno, e o aprendizado vai mostrar se ajudam.</li>
+  <li>O sentimento das notícias é calculado por palavras-chave. Ele erra ironia, contexto e manchetes ambíguas.</li>
+  <li>Um ano de candles diários dá poucas centenas de casos por ativo. As chances têm margem de erro de vários pontos percentuais.</li>
+  <li>Os fatores técnicos são parecidos entre si e um pode repetir o que o outro diz.</li>
+  <li>Os custos são estimados por classe e não incluem impostos nem variação do dólar para quem investe em reais em ativos cotados em dólar.</li>
+  <li>Os dados ficam no navegador: exporte backups em Configurações.</li>
+  <li>Nada aqui é recomendação de investimento.</li></ul>`;
+}
+function renderAll(){ renderSide(); renderPanel(false); renderJournal(); renderPerf(); renderNews(); }
+function toast(m){ const t=$("#toast"); t.textContent=m; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", 6000); }
+
+/* ---------------- Navegação e config ---------------- */
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{ document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b)); document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on", v.id==="v-"+b.dataset.v)); if(b.dataset.v==="painel" && chart) setTimeout(()=>renderChart(ASSETS.find(x=>x.sym===SEL)),0); if(b.dataset.v==="desemp") renderPerf(); });
+function fillCfg(){ const s=DB.settings; $("#cfgBanks").value=(s.banks||[]).join(", "); $("#cfgMinP").value=s.minP; $("#cfgMinEdge").value=s.minEdge; $("#cfgKelly").value=s.kelly; $("#cfgBrapi").value=s.brapiToken; $("#cfgB3x").value=s.b3Extra; $("#cfgTwelve").value=s.twelveKey; $("#cfgUSx").value=s.usExtra; }
+$("#cfgSave").onclick = ()=>{ const s=DB.settings; const old = JSON.stringify([s.brapiToken,s.b3Extra,s.twelveKey,s.usExtra]);
+  s.banks=$("#cfgBanks").value.split(/[,;\s]+/).map(x=>+x.replace(/\./g,"")).filter(x=>x>0).sort((a,b)=>a-b); if(!s.banks.length) s.banks=[...DEFAULT_SETTINGS.banks]; s.minP=+$("#cfgMinP").value||55; s.minEdge=+$("#cfgMinEdge").value||0; s.kelly=+$("#cfgKelly").value||0.25; s.brapiToken=$("#cfgBrapi").value.trim(); s.b3Extra=$("#cfgB3x").value; s.twelveKey=$("#cfgTwelve").value.trim(); s.usExtra=$("#cfgUSx").value; save();
+  if(old!==JSON.stringify([s.brapiToken,s.b3Extra,s.twelveKey,s.usExtra])) location.reload(); else { runAnalysis(); renderAll(); toast("Configurações salvas."); } };
+$("#btnExport").onclick = ()=>{ const blob = new Blob([JSON.stringify({...DB, cache:{}}, null, 1)], {type:"application/json"}); const u=URL.createObjectURL(blob); const l=document.createElement("a"); l.href=u; l.download=`mf-tracker-backup-${new Date().toISOString().slice(0,10)}.json`; l.click(); setTimeout(()=>URL.revokeObjectURL(u),2000); };
+$("#fileImport").onchange = async ev=>{ const f=ev.target.files[0]; if(!f) return; try{ const d=JSON.parse(await f.text()); if(!Array.isArray(d.journal)) throw new Error("arquivo sem diário"); DB = {...load(), ...d, cache:{}}; DB.settings={...DEFAULT_SETTINGS,...d.settings}; DB.weights={...DEFAULT_W,...d.weights}; save(); location.reload(); }catch(e){ toast("Backup inválido: "+e.message); } };
+$("#btnResetW").onclick = ()=>{ DB.weights={...DEFAULT_W}; save(); runAnalysis(); renderAll(); toast("Pesos voltaram ao padrão."); };
+$("#rdCheap").onchange = renderRadar; $("#rdLiq").onchange = renderRadar; $("#rdAddBtn").onclick = watchByAddress;
+$("#btnVault").onclick = connectVault; $("#btnVaultMd").onclick = downloadMd;
+$("#btnEval").onclick = ()=>{ const n=evaluateDue(); if(!n) toast("Nenhuma previsão vencida para avaliar agora."); };
+setInterval(()=>{ $("#clock").textContent = new Date().toLocaleTimeString("pt-BR",{timeZone:"America/Sao_Paulo"})+" BRT"; }, 1000);
+
+/* ---------------- Ciclo de atualização ---------------- */
+async function loadAllCandles(){
+  const cb = ASSETS.filter(a=>a.src==="coinbase");
+  await Promise.all(cb.map(async a=>{ try{ await loadCoinbase(a); a.err=null; feedOk("coinbase"); }catch(e){ a.err=e.message; feedErr("coinbase",e); } }));
+  try{ await loadBrapi(ASSETS.filter(a=>a.src==="brapi"), true); feedOk("brapi"); }catch(e){ ASSETS.filter(a=>a.src==="brapi").forEach(a=>a.err=e.message); feedErr("brapi",e); }
+  const fx = ASSETS.find(a=>a.src==="awesome"); try{ await loadAwesome(fx); await liveAwesome(fx); feedOk("awesome"); }catch(e){ fx.err=e.message; feedErr("awesome",e); }
+}
+async function loadUS(){ // fila lenta (limite de 8/min): roda em segundo plano
+  for(const a of ASSETS.filter(x=>x.src==="twelve")){ try{ await loadTwelve(a); await liveTwelve(a); a.err=null; feedOk("twelve"); }catch(e){ a.err=e.message; feedErr("twelve",e); } runAnalysis(); renderAll(); }
+}
+async function loadDex(){ for(const a of ASSETS.filter(x=>x.src==="gecko")){ try{ await loadGecko(a); a.err=null; feedOk("gecko"); }catch(e){ a.err=e.message; feedErr("gecko",e); } } }
+async function tickDex(){ const l=ASSETS.filter(x=>x.src==="gecko"); if(!l.length) return; try{ await liveDex(l); feedOk("dexscreener"); }catch(e){ feedErr("dexscreener",e); } }
+async function tickCrypto(){ await Promise.all(ASSETS.filter(a=>a.src==="coinbase").map(async a=>{ try{ await liveCoinbase(a); feedOk("coinbase"); }catch(e){ feedErr("coinbase",e); } })); }
+let lastFull=0, lastDex=0, lastRadar=0, lastQuotes=0;
+async function cycle(){
+  try{
+    await tickCrypto();
+    if(Date.now()-lastFull > 5*60000){ lastFull=Date.now(); try{ await loadBrapi(ASSETS.filter(a=>a.src==="brapi"), false); feedOk("brapi"); }catch(e){ feedErr("brapi",e); } const fx=ASSETS.find(a=>a.src==="awesome"); try{ await liveAwesome(fx); feedOk("awesome"); }catch(e){ feedErr("awesome",e); } await loadContext(); await loadNews(false); }
+    if(Date.now()-lastDex > 60000){ lastDex=Date.now(); await tickDex(); }
+    if(Date.now()-lastRadar > 10*60000){ lastRadar=Date.now(); loadRadar().then(evaluateRadar); loadDex().then(()=>{ runAnalysis(); renderAll(); }); }
+    runAnalysis(); evaluateDue(); renderAll();
+    if(Date.now()-lastQuotes > 15*60000){ lastQuotes=Date.now(); syncVault(); }
+  }catch(e){ console.error(e); }
+}
+async function boot(){
+  renderMethod(); fillCfg(); initChart(); renderFeeds(); renderAll(); initVault();
+  await Promise.all([loadContext(), loadAllCandles(), loadNews(false), loadDex()]);
+  await Promise.all([tickCrypto(), tickDex()]); lastDex = Date.now();
+  runAnalysis(); evaluateDue(); renderAll(); renderPanel(true);
+  lastFull = Date.now();
+  loadUS();
+  lastRadar = Date.now(); loadRadar().then(evaluateRadar);
+  lastQuotes = Date.now();
+  setInterval(cycle, 20000);
+  setInterval(async()=>{ await loadAllCandles(); runAnalysis(); renderAll(); }, 30*60000);
+}
+boot();
+</script>
+</body>
+</html>

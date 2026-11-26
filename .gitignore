@@ -1,0 +1,7 @@
+# segredos e dados locais
+chaves.local.js
+coletor/.venv/
+coletor/dados/
+coletor/config.local.json
+*.tmp
+__pycache__/
