@@ -94,8 +94,16 @@ def t_stat(x):
 
 
 def t_por_dia(pnl, quando):
-    """t agrupando operações que começam no mesmo dia (média por dia)."""
+    """t agrupando operações que começam no mesmo dia (MÉDIA por dia: cada dia pesa igual).
+    ATENÇÃO (26/11/2026): superestima o t quando dias com poucas operações são os melhores. Para o ganho total,
+    use t_por_dia_soma (cada operação pesa igual). No modelo de 4 h, margem 0,05: t 8,1 pela média, 3,0 pela soma."""
     s = pd.Series(np.asarray(pnl, float), index=pd.to_datetime(quando)).groupby(lambda x: x.normalize()).mean()
+    return t_stat(s.values), len(s)
+
+
+def t_por_dia_soma(pnl, quando):
+    """t agrupando por dia pela SOMA do dia (cada operação pesa igual; robusto à correlação dentro do dia)."""
+    s = pd.Series(np.asarray(pnl, float), index=pd.to_datetime(quando)).groupby(lambda x: x.normalize()).sum()
     return t_stat(s.values), len(s)
 
 
