@@ -62,11 +62,29 @@ def ret_diarios(C):
     return np.r_[0.0, C[1:] / C[:-1] - 1]
 
 
-def aplicar(pos, C, cls):
-    """pos[i] = posição (0..1) decidida no fechamento do dia i, vale para o retorno do dia i+1. Custos a cada mudança."""
+CAIXA = {}  # dia -> juro do caixa no dia (Selic), preenchido no main; vazio = caixa rende zero
+
+
+def juro_caixa(dias):
+    if not CAIXA:
+        return np.zeros(len(dias))
+    out = np.zeros(len(dias))
+    ult = 0.0
+    for i in range(1, len(dias)):
+        acc = 1.0
+        for d in range(int(dias[i - 1]), int(dias[i])):
+            ult = CAIXA.get(d, ult); acc *= 1 + ult
+        out[i] = acc - 1
+    return out
+
+
+def aplicar(pos, C, cls, dias=None):
+    """pos[i] = posição (0..1) decidida no fechamento do dia i, vale para o retorno do dia i+1. Custos a cada mudança.
+    A parte fora do mercado rende o juro do caixa (Selic), como o dinheiro parado de quem investe no Brasil."""
     r = ret_diarios(C)
     pos = np.nan_to_num(pos)
-    strat = np.r_[0.0, pos[:-1] * r[1:]]
+    cx = juro_caixa(dias) if dias is not None else np.zeros(len(C))
+    strat = np.r_[0.0, pos[:-1] * r[1:] + (1 - pos[:-1]) * cx[1:]]
     troca = np.abs(np.diff(np.r_[0.0, pos]))
     strat -= np.r_[0.0, troca[:-1]] * custo(cls) / 2  # custo de ida e volta dividido entre entrada e saída
     return strat
@@ -133,15 +151,16 @@ def selic_diaria():
 
 
 def fed_diaria():
-    """Juro americano (EFFR) do FRED, CSV público sem chave."""
-    path = os.path.join(B.HIST, "effr.csv")
-    if not B.cache_ok(path, 24):
-        with urllib.request.urlopen(urllib.request.Request("https://fred.stlouisfed.org/graph/fredgraph.csv?id=DFF", headers=B.UA), timeout=30) as r:
-            open(path, "wb").write(r.read())
-    df = pd.read_csv(path)
-    col = df.columns[1]
-    df = df[pd.to_numeric(df[col], errors="coerce").notna()]
-    return {int(pd.Timestamp(d).tz_localize("UTC").timestamp()) // 86400: float(v) / 100 / 360 for d, v in zip(df.iloc[:, 0], df[col])}
+    """Juro americano de curto prazo: título de 13 semanas (^IRX) no Yahoo; o FRED não respondeu no PC do Luis."""
+    path = os.path.join(B.HIST, "irx.csv")
+    if B.cache_ok(path, 24):
+        df = pd.read_csv(path)
+    else:
+        import yfinance as yf
+        h = yf.Ticker("^IRX").history(start="2012-01-01", interval="1d")
+        df = pd.DataFrame({"t": [int(pd.Timestamp(d.date()).tz_localize("UTC").timestamp()) for d in h.index], "c": h["Close"].values}).dropna()
+        df.to_csv(path, index=False)
+    return {int(t) // 86400: float(c) / 100 / 360 for t, c in zip(df["t"], df["c"])}
 
 
 def carry(fx, selic, fed):
@@ -197,12 +216,17 @@ def main():
     ini = time.time()
     ativos = B.sinteticos() if args.sintetico else B.carregar(2012)
     ativos = [a for a in ativos if len(a["df"]) >= 400]
+    if not args.sintetico:
+        try:
+            CAIXA.update(selic_diaria())
+        except Exception as e:
+            B.log(f"Selic indisponível ({e}); fora do mercado rende zero")
     L = ["---", "tipo: backtest", f"gerado_por: MF Tracker estratégias (motor {M.VERSAO_MOTOR})", f"data: {datetime.now(BRT):%Y-%m-%dT%H:%M}-03:00",
          f"dados: {'SINTÉTICOS (teste do código)' if args.sintetico else 'reais'}", "tags: [backtest, estrategias]", "---", "",
          f"# Estratégias de prazo longo — {datetime.now(BRT):%d/%m/%Y}", ""]
     if args.sintetico:
         L += ["> **Dados sintéticos.** O resultado certo aqui é nenhuma estratégia batendo o comprar e segurar.", ""]
-    L += ["Parâmetros fixados antes do teste (literatura), nada ajustado aos dados. **Sharpe** = retorno por unidade de risco "
+    L += ["Parâmetros fixados antes do teste (literatura), nada ajustado aos dados. Quando a estratégia sai do mercado, o dinheiro rende a Selic. **Sharpe** = retorno por unidade de risco "
           "(acima de 0,5 é bom; comprar e segurar a bolsa costuma ficar entre 0,3 e 0,6). **Maior queda** = pior perda do pico ao fundo. "
           "**t (Sharpe)** compara o retorno ajustado ao risco da estratégia com o de segurar, em blocos mensais: abaixo de 2, a diferença pode ser sorte.", ""]
     resumo = {}
@@ -215,7 +239,7 @@ def main():
             C = a["df"]["c"].to_numpy(float)
             pos = fn(a)
             i0 = int(np.argmax(np.isfinite(pos)))
-            rs = aplicar(pos, C, a["cls"])[i0 + 1:]
+            rs = aplicar(pos, C, a["cls"], (a["df"]["t"] // 86400).to_numpy())[i0 + 1:]
             rb = ret_diarios(C)[i0 + 1:]
             ms, mb = metricas(rs, a["cls"]), metricas(rb, a["cls"])
             t = dif_t(rs, rb, a["cls"])
@@ -261,7 +285,7 @@ def main():
             L += ["## Carry do dólar", "", f"Não consegui calcular: {e}", ""]
     L += ["## Limites (autocrítica)", "",
           "- Resultados de um único período histórico (2012 em diante para ações e dólar; 2017 em diante para cripto). Cripto teve poucos ciclos completos.",
-          "- Ficar \"fora do mercado\" rende zero aqui; na vida real o dinheiro parado renderia CDI, o que favoreceria as estratégias de tendência no Brasil.",
+          "- Fora do mercado, o dinheiro rende a Selic do dia (aproximação do CDI, sem imposto). Para ativos em dólar isso mistura moedas: é a visão de quem guarda o caixa em real.",
           "- Custos fixos por classe; sem impostos. Rebalanceamento no fechamento.",
           "- O t compara retorno ajustado ao risco em blocos mensais; ativos que andam juntos fazem os resultados não serem independentes entre si.",
           "", f"Tempo de execução: {time.time() - ini:.0f} s.", ""]
@@ -280,7 +304,6 @@ def main():
         except Exception as e:
             B.log(f"não gravei no vault: {e}")
     B.log(f"pronto em {time.time() - ini:.0f} s. Relatório: {os.path.join(B.SAIDA, 'estrategias.md')}")
-    print(json.dumps(resumo, ensure_ascii=False))
 
 
 if __name__ == "__main__":
