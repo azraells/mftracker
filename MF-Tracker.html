@@ -1356,7 +1356,7 @@ function trSelo(a, hold){
     if(!VALID || !VALID.itens || !VALID.itens[a.cls]) return {c:"cinza", txt:"ainda não testado (rode coletor\\backtest_intradiario.py e conecte o vault)"};
     const hs = [1,4,12,24]; const hh = hold/3600; const near = hs.reduce((b,x)=>Math.abs(Math.log(x/hh))<Math.abs(Math.log(b/hh))?x:b, 1);
     const v = VALID.itens[a.cls][near+"h"]; if(!v) return {c:"cinza", txt:"sem teste para esse prazo"};
-    const txt = {verde:"validado fora da amostra", amarelo:"indício fraco, não confirmado", vermelho:"testado: sem vantagem", cinza:"poucas operações no teste"}[v.selo]||v.selo;
+    const txt = v.n===0 ? "testado: depois dos custos o método nunca achou entrada nesse prazo" : ({verde:"validado fora da amostra", amarelo:"indício fraco, não confirmado", vermelho:"testado: sem vantagem", cinza:"poucas operações no teste"}[v.selo]||v.selo);
     return {c:v.selo, txt:`${txt} (teste de ${near} h, ${v.n} operações${v.acerto!=null?`, acerto ${(v.acerto*100).toFixed(0)}% contra base ${(v.base*100).toFixed(0)}%`:""})`};
   }
   if(a.cls==="dex") return {c:"cinza", txt:"memecoin nova: histórico curto demais para testar"};
