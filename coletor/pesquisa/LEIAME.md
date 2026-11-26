@@ -33,3 +33,5 @@ Mini índice (WIN), aproximado pelo Ibovespa e pelo BOVA11 em candles de 1 h: `j
   2022–23, ele perde em 2024–26.
 
 Vendas a descoberto (nota `01 Projeto/Vendas a descoberto 2026-11-26.md`): `k_vendas` (lado vendido do modelo de 4 h e regime ao contrário no perpétuo). Esse estudo achou que `lib.t_por_dia` (média por dia) superestimava o t do modelo de 4 h: pela soma do dia (`lib.t_por_dia_soma`) o t é 3,0, não 8,1, e o sinal não passa Bonferroni.
+
+Horizontes de 12 a 72 h, compra e venda (nota `01 Projeto/Horizontes 12 a 72 h 2026-11-26.md`): `l_horizontes` (modelo, tendência, reversão e modelo a favor do regime, nos dois lados) e `l_placebo_diario` (placebo do modelo diário com rótulos deslocados para a frente, além da janela de 250 pregões).
