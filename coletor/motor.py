@@ -187,7 +187,7 @@ def analyze_at(cls, I, F, i, w, settings=DEFAULT_SETTINGS, cal_shift=0.0, horizo
     atrPct = I["atr"][i] / price if np.isfinite(I["atr"][i]) else 0.0
     stopPct = max(best["avgLoss"] * 1.2, 1.5 * atrPct)
     b = best["avgWin"] / best["avgLoss"] if best["avgLoss"] > 0 else 1.0
-    kelly = max(0.0, p - (1 - p) / b)
+    kelly = max(0.0, p - (1 - p) / b) if b > 0 else 0.0  # sem nenhum ganho entre os casos parecidos: não aposta
     frac = min(0.10, kelly * settings["kelly"])
     edge = p - best["base"]
     isOpp = (p * 100 >= settings["minP"] and edge * 100 >= settings["minEdge"] and best["exp"] > 0 and frac > 0 and abs(sTech) >= 0.12)

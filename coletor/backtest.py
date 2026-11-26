@@ -500,7 +500,7 @@ def main():
             vault = json.load(open(os.path.join(BASE, "config.json"), encoding="utf-8"))["vault"]
             pasta = os.path.join(vault, "01 Projeto")
             if os.path.isdir(pasta):
-                nome = f"Backtest {datetime.now(BRT):%Y-%m-%d}.md"
+                nome = f"Backtest {datetime.now(BRT):%Y-%m-%d %Hh%M}.md"  # não sobrescreve relatórios anteriores
                 open(os.path.join(pasta, nome), "w", encoding="utf-8").write(md)
                 log(f"relatório gravado no vault: 01 Projeto/{nome}")
         except Exception as e:
