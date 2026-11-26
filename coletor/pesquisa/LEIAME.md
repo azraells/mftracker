@@ -8,7 +8,10 @@ Leem o cache do coletor (`coletor/dados/historico`, ou a pasta em `MF_HIST`) e g
 
 Ordem: `a_tempo` → `b_calendario` → `c_relacoes` → `d_funding_carry` → `e_extremos_ml` → `f_saidas_mc`
 (usa `a_tempo.csv` e `d_funding_carteira.csv`) → `h_bonferroni`.
-`b_calendario`, `c_relacoes` e os diagnósticos pequenos ainda vão ser versionados.
+Diagnósticos: `b1_confere` (noite × pregão no 1 h), `e3_ml_custos`, `e4_ml_robustez` (superado pela auditoria).
+
+Auditoria do modelo (nota `01 Projeto/Auditoria do modelo 2026-11-26.md`): `ml_core` (núcleo com embargo e placebos)
+→ `g1_auditoria_rodadas base|placebo|desloca|grupos` → `g2_auditoria_analise` → `g3_mc`.
 
 ## Revisão do código (autoanálise)
 
@@ -23,4 +26,5 @@ Ordem: `a_tempo` → `b_calendario` → `c_relacoes` → `d_funding_carry` → `
   maior dos meios, então tudo o que serviu para escolher fica antes do teste.
 - O Monte Carlo sorteia semanas soltas da 2ª metade: perde a sequência de semanas ruins (as quedas reais
   vêm em bloco) e depende muito do período 2023–2026. A chance de perder 50% está subestimada.
-- O corte de confiança 0,10 do modelo foi escolhido olhando o resultado. É indício, não prova.
+- O corte de confiança 0,10 do modelo foi escolhido olhando o resultado. A auditoria confirmou: escolhido só em
+  2022–23, ele perde em 2024–26.
