@@ -241,7 +241,8 @@ def taxa(ls, k, filtro=lambda l: True):
     hit = np.array([l["dir"] * l[f"r_{k}"] > 0 for l in xs], float)
     liq = np.array([l["dir"] * l[f"r_{k}"] - CUSTO[l["cls"]] for l in xs])
     p = hit.mean(); n = len(xs); ne = n_efetivo(xs, k)
-    return {"n": n, "acerto": p, "ic": 1.96 * math.sqrt(max(p * (1 - p), 1e-9) / ne), "liq": float(liq.mean()), "liq_pos": float((liq > 0).mean())}
+    bs = [l[f"base_{k}"] for l in xs if f"base_{k}" in l]
+    return {"n": n, "acerto": p, "base": float(np.mean(bs)) if bs else None, "ic": 1.96 * math.sqrt(max(p * (1 - p), 1e-9) / ne), "liq": float(liq.mean()), "liq_pos": float((liq > 0).mean())}
 
 
 def taxa_tecnica(ls, k, nome):
@@ -272,6 +273,15 @@ def main():
         n_sem = sum(1 for l in ls if l["semana"] and l["dir"] != 0)
         B.log(f"{a['sym']:7s} {n_sem:4d} palpites na semana, {sum(1 for l in ls if not l['semana']):5d} pontos no ano anterior")
     sem = [l for l in todas if l["semana"]]; ano = [l for l in todas if not l["semana"]]
+    # taxa base: quanto acertaria quem chutasse a mesma direção em qualquer momento da semana daquele ativo
+    # (mede só o vento do mercado; acerto acima disso é o que seria habilidade de escolher a hora)
+    for k in ("curto", "dia"):
+        for sym in set(l["sym"] for l in sem):
+            rs = [l[f"r_{k}"] for l in sem if l["sym"] == sym and f"r_{k}" in l]
+            up = np.mean([r > 0 for r in rs]) if rs else 0.5
+            for l in sem:
+                if l["sym"] == sym:
+                    l[f"base_{k}"] = up if l["dir"] > 0 else 1 - up
 
     # chance de cada palpite: acerto do ano anterior com o mesmo mercado e a mesma faixa de concordância (encolhido para 50%)
     cal = {}
@@ -304,13 +314,15 @@ def main():
         ls = [l for l in sem if l["sym"] == a["sym"]]
         s1, s2 = taxa(ls, "curto"), taxa(ls, "dia")
         L.append(f"| {a['sym']} | {MERCADO[a['cls']]} | {B.pct(var, 1)} | {s1['n'] if s1 else 0} | {B.pc(s1['acerto']) if s1 else '—'} | {B.pc(s2['acerto']) if s2 else '—'} |")
-    L += ["", "## Placar geral", "", "| Prazo | Mercado | Palpites | Acerto na semana | Margem (95%) | Acerto no ano anterior | Líquido médio na semana |", "|---|---|---:|---:|---:|---:|---:|"]
+    L += ["", "## Placar geral", "", "| Prazo | Mercado | Palpites | Acerto na semana | Vento da semana (taxa base) | Margem (95%) | Acerto no ano anterior | Líquido médio na semana |", "|---|---|---:|---:|---:|---:|---:|---:|"]
     for k, lab in (("curto", "4 candles"), ("dia", "1 dia")):
         for cls in [None] + sorted(set(l["cls"] for l in sem)):
             f = (lambda l: True) if cls is None else (lambda l, c=cls: l["cls"] == c)
             s, y = taxa(sem, k, f), taxa(ano, k, f)
             if s:
-                L.append(f"| {lab} | {'**Todos**' if cls is None else MERCADO[cls]} | {s['n']} | {B.pc(s['acerto'])} | ±{s['ic']*100:.1f} p.p. | {B.pc(y['acerto']) if y else '—'} | {B.pct(s['liq'], 3)} |")
+                L.append(f"| {lab} | {'**Todos**' if cls is None else MERCADO[cls]} | {s['n']} | {B.pc(s['acerto'])} | {B.pc(s['base']) if s['base'] is not None else '—'} | ±{s['ic']*100:.1f} p.p. | {B.pc(y['acerto']) if y else '—'} | {B.pct(s['liq'], 3)} |")
+    L += ["", "**Vento da semana**: quanto acertaria quem chutasse a mesma direção em qualquer hora da semana daquele ativo. Se o acerto fica perto dele, o palpite só pegou a maré do mercado; habilidade é acertar acima do vento. "
+          "A margem considera que palpites do mesmo mercado na mesma hora contam como um só e que prazos que se sobrepõem não são independentes.", ""]
     L += ["", "## Cada técnica do guia: semana contra ano anterior (prazo curto)", "",
           "Só conta quando a técnica deu sinal. Uma técnica útil acerta acima de 50% **nos dois períodos**.", "",
           "| Técnica | Sinais na semana | Acerto na semana | Sinais no ano | Acerto no ano | Leitura |", "|---|---:|---:|---:|---:|---|"]
@@ -382,9 +394,14 @@ def main():
     s_all, y_all = taxa(sem, "curto"), taxa(ano, "curto")
     reais = [a_ for a_ in achados if a_[3].startswith("**padrão real")]
     L += ["", "## O que a semana ensinou", ""]
-    if s_all:
-        L.append(f"- Acerto geral na semana: {B.pc(s_all['acerto'])} (±{s_all['ic']*100:.1f} p.p.), contra {B.pc(y_all['acerto']) if y_all else '—'} no ano anterior com a mesma regra. "
-                 + ("Dentro da margem de cara ou coroa." if abs(s_all["acerto"] - 0.5) <= s_all["ic"] else "Fora da margem de cara ou coroa nesta semana."))
+    for k, lab in (("curto", "prazo curto (4 candles)"), ("dia", "prazo de 1 dia")):
+        s_, y_ = taxa(sem, k), taxa(ano, k)
+        if not s_:
+            continue
+        habil = s_["acerto"] - (s_["base"] or 0.5)
+        L.append(f"- {lab.capitalize()}: acerto {B.pc(s_['acerto'])} (±{s_['ic']*100:.1f} p.p.), vento da semana {B.pc(s_['base'])}, ano anterior {B.pc(y_['acerto']) if y_ else '—'}. "
+                 + ("O acerto acima de 50% veio da maré do mercado, não de escolher bem a hora." if abs(habil) <= s_["ic"] and s_["acerto"] > 0.5 else
+                    ("Dentro da margem de cara ou coroa." if abs(s_["acerto"] - 0.5) <= s_["ic"] else "Acima do vento e fora da margem: vale acompanhar se se repete.")))
     L.append("- Padrões que se repetem no ano anterior: " + ("; ".join(f"{n} ({B.pc(s['acerto'])} na semana, {B.pc(y['acerto'])} no ano)" for n, s, y, _ in reais) if reais else "nenhum."))
     L += ["- Uma semana tem poucos palpites independentes: ativos do mesmo mercado andam juntos, então um padrão visto só na semana costuma ser sorte. Por isso cada achado é conferido no ano anterior.",
           "- Erros e acertos de cada palpite estão na nota de palpites, com as técnicas que votaram a favor e contra.", "",
