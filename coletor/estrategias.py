@@ -69,11 +69,10 @@ def juro_caixa(dias):
     if not CAIXA:
         return np.zeros(len(dias))
     out = np.zeros(len(dias))
-    ult = 0.0
     for i in range(1, len(dias)):
         acc = 1.0
         for d in range(int(dias[i - 1]), int(dias[i])):
-            ult = CAIXA.get(d, ult); acc *= 1 + ult
+            acc *= 1 + CAIXA.get(d, 0.0)  # a série 11 é taxa por dia útil: fim de semana e feriado não rendem
         out[i] = acc - 1
     return out
 
@@ -168,7 +167,7 @@ def carry(fx, selic, fed):
     dias = (fx["df"]["t"] // 86400).astype(int).to_numpy()
     C = fx["df"]["c"].to_numpy(float)
     r_fx = ret_diarios(C)  # alta do dólar em reais
-    s = pd.Series(selic).reindex(range(dias[0], dias[-1] + 1)).ffill()
+    s = pd.Series(selic).reindex(range(dias[0], dias[-1] + 1)).fillna(0.0)  # taxa por dia útil
     f = pd.Series(fed).reindex(range(dias[0], dias[-1] + 1)).ffill()
     # juros acumulados entre um pregão e o seguinte
     sel = np.array([np.prod([1 + (s.get(d, np.nan) or 0) for d in range(dias[i - 1], dias[i])]) - 1 if i else 0.0 for i in range(len(dias))])
@@ -274,12 +273,13 @@ def main():
             em_real, em_dolar, dias = carry(fx, selic_diaria(), fed_diaria())
             mr, md = metricas(em_real[1:], "fx"), metricas(em_dolar[1:], "fx")
             dif = em_real[1:] - em_dolar[1:]
-            mdif = metricas(dif, "fx")
             L += ["## Carry do dólar (para quem pensa em reais)", "",
                   "| Posição | Retorno ao ano | Sharpe | Maior queda |", "|---|---:|---:|---:|",
-                  f"| Aplicado em real (Selic) | {fmt(mr['cagr'])} | {fmt(mr['sharpe'], False)} | {fmt0(mr['mdd'])} |",
+                  f"| Aplicado em real (Selic) | {fmt(mr['cagr'])} | — (quase sem oscilação) | {fmt0(mr['mdd'])} |",
                   f"| Em dólar aplicado a juro americano | {fmt(md['cagr'])} | {fmt(md['sharpe'], False)} | {fmt0(md['mdd'])} |",
-                  f"| Diferença (real menos dólar) | {fmt(mdif['cagr'])} | {fmt(mdif['sharpe'], False)} | {fmt0(mdif['mdd'])} |", "",
+                  f"| Diferença ao ano (real menos dólar) | {fmt(mr['cagr'] - md['cagr'])} | — | — |", "",
+                  f"Período: {len(dias)} pregões, de {datetime.fromtimestamp(int(dias[0]) * 86400, timezone.utc):%Y-%m-%d} a "
+                  f"{datetime.fromtimestamp(int(dias[-1]) * 86400, timezone.utc):%Y-%m-%d}. Juro americano: título de 13 semanas (^IRX).", "",
                   "Carry positivo = o juro maior do Brasil compensou a alta do dólar no período. Não inclui imposto nem IOF.", ""]
         except Exception as e:
             L += ["## Carry do dólar", "", f"Não consegui calcular: {e}", ""]
