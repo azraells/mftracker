@@ -183,8 +183,8 @@ def main():
             L.append(f"- {GRUPOS[cls]}: sem operações na 2ª metade."); continue
         if m2["fl"] >= 1.3 and m2["t"] >= 2:
             v = "lucrou fora da amostra com folga estatística: candidata a acompanhar ao vivo."
-        elif m2["fl"] > 1 and m2["R"] > 0:
-            v = f"positiva fora da amostra, mas sem folga estatística (t {m2['t']:.2f}): pode ser sorte."
+        elif m2["fl"] > 1 or m2["R"] > 0 or m2["liq"] > 0:
+            v = f"resultado misto fora da amostra (fator de lucro {m2['fl']:.2f}, {m2['R']:+.3f} R, líquido {B.pct(m2['liq'], 3)}), sem folga estatística (t {m2['t']:.2f}): sem vantagem confirmada."
         else:
             v = "perdeu fora da amostra depois dos custos."
         L.append(f"- {GRUPOS[cls]} ({nome_c(c)}): {v}")

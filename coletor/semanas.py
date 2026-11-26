@@ -37,6 +37,18 @@ def tstat(x):
     return float(x.mean() / (x.std(ddof=1) / math.sqrt(len(x))))
 
 
+def ponderado(w, x):
+    """Média de x ponderada pelo número de casos e t entre semanas (estimador de razão):
+    cada semana pesa pelo número de palpites, e o erro padrão vem da variação entre semanas."""
+    d = pd.DataFrame({"w": w, "x": x}).groupby("w")["x"].agg(["sum", "count"])
+    if len(d) < 3:
+        return float(np.mean(x)), 0.0
+    m = d["sum"].sum() / d["count"].sum()
+    r = d["sum"] - m * d["count"]
+    se = math.sqrt(len(d) / (len(d) - 1) * (r ** 2).sum()) / d["count"].sum()
+    return float(m), float(m / se) if se > 0 else 0.0
+
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--sintetico", action="store_true"); ap.add_argument("--semanas", type=int, default=100)
     args = ap.parse_args(); W = args.semanas
@@ -90,8 +102,9 @@ def main():
             continue
         h = (v[f"v_{nome}"] * v["r"] > 0).astype(float)
         b = np.where(v[f"v_{nome}"] > 0, v["up"], 1 - v["up"])
-        g = pd.DataFrame({"w": v["w"], "h": h, "hb": h - b}).groupby("w").agg(h=("h", "mean"), hb=("hb", "mean"), n=("h", "size"))
-        tec[nome] = (len(v), float(h.mean()), float((g["h"] > 0.5).mean()), float(g["hb"].mean()), tstat(g["hb"]))
+        g = pd.DataFrame({"w": v["w"], "h": h}).groupby("w")["h"].mean()
+        hb, t = ponderado(v["w"].to_numpy(), (h - b).to_numpy())
+        tec[nome] = (len(v), float(h.mean()), float((g > 0.5).mean()), hb, t)
     # situações
     cortes = df.groupby("cls")["sig"].quantile([1 / 3, 2 / 3]).unstack()
     clima = np.where(df["sig"] < df["cls"].map(cortes[1 / 3]), "calmo", np.where(df["sig"] > df["cls"].map(cortes[2 / 3]), "agitado", "normal"))
@@ -107,8 +120,9 @@ def main():
         v = df[m]
         if len(v) < 50:
             continue
-        g = v.assign(hb=v["hit"] - v["base"]).groupby("w").agg(h=("hit", "mean"), hb=("hb", "mean"))
-        sit[nome] = (len(v), float(v["hit"].mean()), float(v["base"].mean()), float(g["hb"].mean()), tstat(g["hb"]), float((g["hb"] > 0).mean()))
+        g = v.assign(hb=v["hit"] - v["base"]).groupby("w")["hb"].mean()
+        hb, t = ponderado(v["w"].to_numpy(), (v["hit"] - v["base"]).to_numpy())
+        sit[nome] = (len(v), float(v["hit"].mean()), float(v["base"].mean()), hb, t, float((g > 0).mean()))
 
     # ---------- 2. operações com stop e alvo ----------
     for a in ativos:
@@ -157,12 +171,12 @@ def main():
         L.append(f"| {datetime.fromtimestamp(ini + w * SEM, BRT):%d/%m/%Y} | {int(r['n'])} | {B.pc(r['acerto'])} | {B.pc(r['vento'])} | {r['habil']*100:+.1f} p.p. | "
                  f"{B.pc(r['baixa'])} | {B.pc(r['faixa']) if np.isfinite(r['faixa']) else '—'} |")
     L += ["", "### Cada técnica do guia em 100 semanas", "",
-          "| Técnica | Sinais | Acerto | Semanas acima de 50% | Habilidade média (acerto − vento) | t entre semanas | Leitura |", "|---|---:|---:|---:|---:|---:|---|"]
+          "| Técnica | Sinais | Acerto | Semanas acima de 50% | Habilidade (acerto − vento, semanas pesam pelo nº de sinais) | t entre semanas | Leitura |", "|---|---:|---:|---:|---:|---:|---|"]
     for nome, (n, h, wpos, hb, t) in sorted(tec.items(), key=lambda x: -x[1][4]):
         leit = "ajuda (t ≥ 2,9)" if t >= 2.9 else ("atrapalha (t ≤ −2,9)" if t <= -2.9 else ("indício fraco" if abs(t) >= 2 else "sem efeito confirmado"))
         L.append(f"| {S.TECNICAS[nome]} | {n} | {B.pc(h)} | {B.pc(wpos)} | {hb*100:+.2f} p.p. | {t:.2f} | {leit} |")
     L += ["", "### Situações em que acerta ou erra mais", "",
-          "| Situação | Palpites | Acerto | Vento | Habilidade média | t entre semanas | Semanas com habilidade positiva | Leitura |", "|---|---:|---:|---:|---:|---:|---:|---|"]
+          "| Situação | Palpites | Acerto | Vento | Habilidade (semanas pesam pelo nº de palpites) | t entre semanas | Semanas com habilidade positiva | Leitura |", "|---|---:|---:|---:|---:|---:|---:|---|"]
     for nome, (n, h, b, hb, t, wp) in sorted(sit.items(), key=lambda x: -x[1][4]):
         leit = "**acerta mais (t ≥ 3)**" if t >= 3 else ("**erra mais (t ≤ −3)**" if t <= -3 else ("indício fraco (pode ser sorte entre tantas situações)" if abs(t) >= 2 else "sem diferença confirmada"))
         L.append(f"| {nome} | {n} | {B.pc(h)} | {B.pc(b)} | {hb*100:+.2f} p.p. | {t:.2f} | {B.pc(wp)} | {leit} |")
@@ -184,7 +198,8 @@ def main():
         for x in gw:
             banca *= 1 + 0.01 * x; pico = max(pico, banca); queda = max(queda, 1 - banca / pico)
         L += ["", f"Banca simulada com 1% de risco por operação nessa combinação: **{B.pct(banca - 1, 1)}** em {W} semanas, maior queda **{B.pct(-queda, 1)}**. "
-              + ("Passou do limiar de 2,9: vale acompanhar ao vivo." if t >= 2.9 else "Não passou do limiar de 2,9: mesmo sendo a melhor das 12, não dá para descartar sorte.")]
+              + ("Passou do limiar de 2,9: vale acompanhar ao vivo." if t >= 2.9 else
+                 ("Ganho sem confirmação estatística: pode ser sorte." if gm > 0 else "Todas as 12 perdem; esta é só a que perde menos."))]
     # conclusão
     L += ["", "## Conclusão", "",
           f"- **Palpites de direção:** habilidade média {sem['habil'].mean()*100:+.2f} p.p. por semana (t {tstat(sem['habil']):.2f}). "

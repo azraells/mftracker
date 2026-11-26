@@ -400,8 +400,8 @@ def main():
             continue
         habil = s_["acerto"] - (s_["base"] or 0.5)
         L.append(f"- {lab.capitalize()}: acerto {B.pc(s_['acerto'])} (±{s_['ic']*100:.1f} p.p.), vento {B.pc(s_['base'])}, ano anterior {B.pc(y_['acerto']) if y_ else '—'}. "
-                 + ("Acerto perto do vento: dentro da margem de sorte." if abs(habil) <= s_["ic"] and s_["acerto"] > 0.5 else
-                    ("Dentro da margem de cara ou coroa." if abs(s_["acerto"] - 0.5) <= s_["ic"] else "Acima do vento e fora da margem: vale acompanhar se se repete.")))
+                 + ((f"Acima do vento por {habil*100:.1f} p.p., {'no limite da' if abs(habil) > 0.75 * s_['ic'] else 'dentro da'} margem de sorte (±{s_['ic']*100:.1f}); uma semana só não confirma nada." if abs(habil) <= s_["ic"] and s_["acerto"] > 0.5 else
+                    ("Dentro da margem de cara ou coroa." if abs(s_["acerto"] - 0.5) <= s_["ic"] else "Acima do vento e fora da margem: vale acompanhar se se repete."))))
     L.append("- Padrões que se repetem no ano anterior: " + ("; ".join(f"{n} ({B.pc(s['acerto'])} na semana, {B.pc(y['acerto'])} no ano)" for n, s, y, _ in reais) if reais else "nenhum."))
     L += ["- Uma semana tem poucos palpites independentes: ativos do mesmo mercado andam juntos, então um padrão visto só na semana costuma ser sorte. Por isso cada achado é conferido no ano anterior.",
           "- Erros e acertos de cada palpite estão na nota de palpites, com as técnicas que votaram a favor e contra.", "",
