@@ -160,7 +160,8 @@ def coletar_contexto(falhas):
         falhas.append(f"CoinGecko: {e}")
     try:
         s = get_json("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json")[0]
-        ctx["selic"] = f"{s['valor']}% (vigente desde {s['data']})"
+        # a série 432 vem preenchida até a próxima reunião do Copom, então a data é o fim da série, não o início da vigência
+        ctx["selic"] = f"{s['valor']}% ao ano (BCB, série 432)"
     except Exception as e:
         falhas.append(f"BCB Selic: {e}")
     return ctx
