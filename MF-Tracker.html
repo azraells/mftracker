@@ -1197,7 +1197,7 @@ function renderPerf(){
       let eq=bank, lastT=0; const pts=[]; closed.forEach(e=>{ eq += pnlFor(e,bank); let t=Math.floor(e.result.evaluatedAt/1000); if(t<=lastT) t=lastT+1; lastT=t; pts.push({time:t, value:(eq/bank-1)*100}); });
       eqChart._s[bank].setData(pts); any = any || pts.length>0; });
     if(any) eqChart.timeScale().fitContent();
-    if(!pts.length) $("#equity").setAttribute("title","Sem dados ainda");
+    if(!any) $("#equity").setAttribute("title","Sem dados ainda");
   }
   // calibração
   const buckets = [[0.5,0.6],[0.6,0.7],[0.7,0.8],[0.8,1.01]];
@@ -1251,7 +1251,9 @@ function renderMethod(){
   <li>Os dados ficam no navegador: exporte backups em Configurações.</li>
   <li>Nada aqui é recomendação de investimento.</li></ul>`;
 }
-function renderAll(){ renderSide(); renderPanel(false); renderJournal(); renderPerf(); renderNews(); }
+function renderAll(){ // um painel com erro não pode travar os outros nem o carregamento
+  for(const f of [renderSide, ()=>renderPanel(false), renderJournal, renderPerf, renderNews]){ try{ f(); }catch(e){ console.error(e); } }
+}
 function toast(m){ const t=$("#toast"); t.textContent=m; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", 6000); }
 
 /* ---------------- Navegação e config ---------------- */
