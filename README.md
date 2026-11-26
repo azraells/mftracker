@@ -28,3 +28,7 @@ A pasta `docs/` guarda cópias da arquitetura, do changelog e das decisões. A v
 ## Chaves de API
 
 Copie `chaves.local.exemplo.js` para `chaves.local.js` (ao lado do `MF-Tracker.html`) e preencha os tokens. Esse arquivo está no `.gitignore` e nunca deve ser enviado ao repositório.
+
+## Backtest
+
+`coletor\.venv\Scripts\python coletor\backtest.py` baixa anos de histórico (Binance via ccxt, Yahoo via yfinance) e testa o método do jeito que ele roda ao vivo, sem olhar o futuro. O relatório vai para `coletor/dados/backtest/relatorio.md` e para o vault em `01 Projeto/Backtest AAAA-MM-DD.md`. Com `--sintetico` roda em preços aleatórios para testar o código (o resultado certo é "sem vantagem").
