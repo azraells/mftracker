@@ -805,11 +805,16 @@ async function writeFile(dirNames, name, text){
   const fh = await d.getFileHandle(name, {create:true}); const w = await fh.createWritable(); await w.write(text); await w.close();
 }
 async function initVault(){
-  if(!window.showDirectoryPicker){ VAULT_STATE="unsupported"; renderVault(); return; }
+  if(typeof window.showDirectoryPicker!=="function"){ VAULT_STATE="unsupported"; renderVault(); return; }
   try{ const h = await idbGet("vault"); if(h){ VAULT=h; VAULT_STATE = (await h.queryPermission({mode:"readwrite"}))==="granted" ? "ok" : "needs-permission"; } }catch(e){ console.warn(e); }
   renderVault(); if(VAULT_STATE==="ok") syncVault();
 }
 async function connectVault(){
+  if(typeof window.showDirectoryPicker!=="function"){
+    const brave = navigator.brave ? " No Brave, ative em brave://flags/#file-system-access-api e reinicie." : "";
+    toast("Este navegador não deixa sites gravarem em pastas do PC. Abra o MF-Tracker.html pelo Google Chrome ou Microsoft Edge (botão direito no arquivo > Abrir com)."+brave+" Enquanto isso, use \"Baixar notas .md\".");
+    return;
+  }
   try{
     if(VAULT && VAULT_STATE==="needs-permission"){ if((await VAULT.requestPermission({mode:"readwrite"}))==="granted"){ VAULT_STATE="ok"; renderVault(); syncVault(); } return; }
     const h = await window.showDirectoryPicker({id:"mfvault", mode:"readwrite"});
