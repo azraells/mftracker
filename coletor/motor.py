@@ -134,7 +134,12 @@ def combine(F, w):
     return F @ ws / ws.sum()
 
 
-def analyze_at(cls, I, F, i, w, settings=DEFAULT_SETTINGS, cal_shift=0.0, horizons=HORIZONTES):
+# Encolhimento: com n casos parecidos, só n/(n+K) do desvio em relação à taxa base é levado a sério.
+# K=100 foi fixado antes de olhar o resultado; o backtest de 2026-11-26 mostrou chances infladas em ~10 p.p. sem isso.
+SHRINK_K = 100
+
+
+def analyze_at(cls, I, F, i, w, settings=DEFAULT_SETTINGS, cal_shift=0.0, horizons=HORIZONTES, shrink_k=SHRINK_K):
     """Análise como o HTML faria no fechamento do candle i, usando só dados até i (sem olhar o futuro)."""
     cost = CLASSES[cls]["cost"]
     C = I["C"]
@@ -165,7 +170,11 @@ def analyze_at(cls, I, F, i, w, settings=DEFAULT_SETTINGS, cal_shift=0.0, horizo
             continue
         rr = d * fwd[sel] - cost
         wins, losses = rr[rr > 0], -rr[rr <= 0]
-        res.append({"h": h, "n": n, "band": band, "base": base, "p0": ((rr > 0).sum() + 1) / (n + 2), "exp": float(rr.mean()),
+        k = n / (n + shrink_k) if shrink_k else 1.0
+        p_raw = ((rr > 0).sum() + 1) / (n + 2)
+        exp_base = float((d * fwd - cost).mean())
+        res.append({"h": h, "n": n, "band": band, "base": base, "p_raw": p_raw, "exp_raw": float(rr.mean()), "shrink": k,
+                    "p0": base + (p_raw - base) * k, "exp": exp_base + (float(rr.mean()) - exp_base) * k,
                     "avgWin": float(wins.mean()) if len(wins) else 0.0, "medWin": float(np.median(wins)) if len(wins) else 0.0,
                     "avgLoss": float(losses.mean()) if len(losses) else 0.0, "worst": float(rr.min())})
     if not res:
