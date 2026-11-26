@@ -172,6 +172,7 @@ svg.spark{display:block}
         </div>
         <div id="trRes" style="margin-top:14px"></div>
       </div>
+      <div class="card" style="margin-top:14px"><h3>Dentro ou fora do mercado (regime) <span class="mut" id="regInfo" style="text-transform:none;letter-spacing:0"></span></h3><div id="trReg"></div></div>
       <div class="card" style="margin-top:14px"><h3>Sugestões agora <span><button class="btn sm" id="trSugBtn">Atualizar sugestões</button></span></h3><div id="trSug"></div></div>
       <div class="g4" id="trKpi" style="margin-top:14px"></div>
       <div class="card" style="margin-top:14px"><h3>Posições de trading simuladas</h3><div id="trPos"></div></div>
@@ -246,7 +247,7 @@ svg.spark{display:block}
    MF Tracker v0.1 — motor de análise + diário de simulações
    Tudo roda no navegador. Fontes reais, sem dados inventados.
    ============================================================ */
-const VERSION = "0.4.1";
+const VERSION = "0.5.0";
 const DAY = 86400000;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -859,6 +860,7 @@ async function syncVault(all){
     await writeFile(["04 Operações"], "Placar automático.md", placarMarkdown());
     await writeFile(["02 Mercados"], "Sinais do modelo.md", quotesMarkdown());
     if(RADAR.list.length) await writeFile(["02 Mercados"], "Radar de memecoins (automático).md", radarMarkdown());
+    await writeFile(["02 Mercados"], "Regime ao vivo.md", regimeMarkdown());
     await writeFile(["99 Meta","Backup do programa"], "mf-tracker-dados.json", JSON.stringify({...DB, cache:{}}, null, 1));
     DB.cache.vaultAt = Date.now(); save(); renderVault();
   }catch(e){ console.warn(e); if(e.name==="NotAllowedError"){ VAULT_STATE="needs-permission"; renderVault(); } else toast("Falha ao gravar no vault: "+e.message); }
@@ -1268,6 +1270,7 @@ function renderMethod(){
   <h4>O que o backtest mostrou (26/11/2026)</h4><p>Testei este método em 24 ativos, de 2012 (ou da listagem) até hoje, sem olhar o futuro. Resultado: <b>sem vantagem real</b>. As chances saíam cerca de 10 pontos acima do acerto real (corrigido nesta versão: a chance agora é puxada para a taxa base conforme o número de casos parecidos). Escolhendo fatores numa metade do histórico e testando na outra, o retorno acima da tendência média do mercado ficou em zero. Ou seja: hoje os registros deste programa são <b>estudo</b>, não sinal para operar. Relatórios completos no vault, em 01 Projeto/Backtest.</p>
   <h4>Aba Trading</h4><p>Para qualquer ativo, valor e prazo (15 min a 14 dias), a aba busca candles reais do mesmo tamanho do prazo (cripto: Coinbase, até 1.200 candles; demais mercados: diários) e mede como terminaram todas as janelas passadas desse prazo: chance de lucro depois dos custos, resultado médio, faixa de 50% dos casos e extremos. Se houver histórico, filtra os momentos em que a pontuação técnica estava parecida com a de agora, puxando a chance para a taxa sem filtro (mesmo encolhimento K=100). Stop e alvo opcionais mostram qual costuma ser tocado primeiro. Cada posição marcada é avaliada sozinha no vencimento com preço real e vira nota TR- em 04 Operações. O selo vem de 99 Meta/validacao.json, gerado por coletor\backtest_intradiario.py: só verde significa vantagem confirmada fora da amostra.</p>
   <h4>Faixa provável e volatilidade</h4><p>Prever a direção não passou em nenhum teste; prever o tamanho do movimento é mais viável. Se o vault tiver 99 Meta/faixa.json (gerado por coletor\faixa.py), a faixa de 50% e os extremos da aba Trading passam a ser medidos em relação à volatilidade do momento (média exponencial dos retornos), com o peso alfa escolhido na 1ª metade do histórico e conferido na 2ª. O placar "caiu na faixa prevista" mostra se isso se confirma ao vivo: o certo é perto de 50%.</p>
+  <h4>Dentro ou fora do mercado (regime)</h4><p>Em 26/11/2026 foram mais de 6.000 simulações (scripts em coletor/pesquisa, notas em 01 Projeto: Pesquisa autônoma e Auditoria do modelo). Prever a direção de cada hora não paga o custo: o melhor modelo acerta 55% em 4 horas, mas ganha só +0,11% por operação, menos do que a taxa mais o deslizamento. O que funcionou foi decidir <b>quando estar dentro ou fora</b>, com o tamanho reduzido quando a volatilidade sobe: momento de 21 pregões na B3, média de 50 dias em cripto e rompimento de 20 dias em memecoins, cada uma com saída por tempo. Escolhidas na 1ª metade do histórico e conferidas na 2ª, elas cortaram as maiores quedas (cripto −31% contra −64%; B3 −11% contra −45%), mas nenhuma passou na correção por testes múltiplos, por isso o selo é amarelo. Na bolsa americana e no dólar nada superou segurar. O programa registra cada mudança de estado para medir as regras ao vivo (02 Mercados/Regime ao vivo.md).</p>
   <h4>Limites conhecidos (sinceridade)</h4><ul>
   <li>Memecoins novas têm poucas centenas de horas de histórico e são dominadas por baleias, bots e notícias de redes sociais que o programa ainda não lê (X/Telegram). Qualquer chance calculada para elas é bem menos confiável.</li>
   <li>Notícias e contexto global ainda <b>não têm calibração histórica</b> (não temos manchetes antigas). Por isso entram só como ajuste pequeno, e o aprendizado vai mostrar se ajudam.</li>
@@ -1279,7 +1282,7 @@ function renderMethod(){
   <li>Nada aqui é recomendação de investimento.</li></ul>`;
 }
 function renderAll(){ // um painel com erro não pode travar os outros nem o carregamento
-  for(const f of [renderSide, ()=>renderPanel(false), renderJournal, renderPerf, renderNews]){ try{ f(); }catch(e){ console.error(e); } }
+  for(const f of [renderSide, ()=>renderPanel(false), renderJournal, renderPerf, renderNews, renderRegime]){ try{ f(); }catch(e){ console.error(e); } }
 }
 function toast(m){ const t=$("#toast"); t.textContent=m; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", 6000); }
 
@@ -1495,6 +1498,97 @@ async function loadValid(){
   try{ const d = await VAULT.getDirectoryHandle("99 Meta"); const fh = await d.getFileHandle("validacao.json"); VALID = JSON.parse(await (await fh.getFile()).text()); }catch(e){ VALID = null; }
   try{ const d = await VAULT.getDirectoryHandle("99 Meta"); const fh = await d.getFileHandle("faixa.json"); FAIXA = JSON.parse(await (await fh.getFile()).text()); }catch(e){ FAIXA = null; }
 }
+
+/* ---------------- Regime: quando estar dentro ou fora (pesquisa de 26/11/2026, coletor/pesquisa) ---------------- */
+// Regras escolhidas na 1ª metade do histórico e conferidas na 2ª (f_saidas_mc.py, g3_mc.py). Nenhuma passou na
+// correção por testes múltiplos: o efeito confirmado é cortar quedas grandes, não ganhar mais.
+const REGRAS = {
+  crypto:{nome:"preço acima da média de 50 dias", tempo:20, per:365, t:1.38, sel:"amarelo",
+    res:"2ª metade: +47,8% ao ano contra +29,1% de segurar; maior queda −31% contra −64%. Chance de perder metade em 1 ano: menos de 0,5% contra cerca de 22%."},
+  meme:{nome:"rompimento da máxima de 20 dias (sai na mínima de 10)", tempo:60, per:365, t:-0.02, sel:"amarelo",
+    res:"2ª metade: −20,6% ao ano contra −70,1% de segurar. Perde bem menos, mas ainda perde."},
+  b3:{nome:"momento de 21 pregões positivo", tempo:60, per:252, t:2.23, sel:"amarelo",
+    res:"2ª metade: +19,7% ao ano contra +12,6% de segurar; maior queda −11% contra −45%. Positivo em 1 ano em 93% dos caminhos contra 72%."},
+  us:{nome:null, res:"Nenhuma regra superou segurar no teste (o conjunto de tendências deu +22,8% contra +34,4%)."},
+  fx:{nome:null, res:"Nenhuma regra superou segurar no teste."},
+};
+function regCalc(a){
+  const R = REGRAS[a.cls]; if(!R || !R.nome) return null;
+  const c = a.candles.map(x=>x.c).filter(x=>x>0), n = c.length; if(n < 60) return {err:"histórico curto ("+n+" dias)"};
+  const base = new Array(n).fill(0);
+  if(a.cls==="crypto"){ let s=0; for(let i=0;i<n;i++){ s+=c[i]; if(i>=50) s-=c[i-50]; if(i>=49) base[i] = c[i] > s/50 ? 1 : 0; } }
+  else if(a.cls==="b3"){ for(let i=21;i<n;i++) base[i] = c[i]/c[i-21]-1 > 0 ? 1 : 0; }
+  else if(a.cls==="meme"){ let pos=0; for(let i=10;i<n;i++){ const lo=Math.min(...c.slice(i-10,i)); if(i>=20 && c[i]>Math.max(...c.slice(i-20,i))) pos=1; else if(c[i]<lo) pos=0; base[i]=pos; } }
+  // saída por tempo: depois de R.tempo dias dentro, sai e espera 5 dias (mesma lógica de f_saidas_mc.py)
+  const w = new Array(n).fill(0); let dentro=0, bloq=0;
+  for(let i=0;i<n;i++){
+    if(base[i]<=0){ dentro=0; bloq=0; continue; }
+    if(bloq>0){ bloq--; if(bloq===0) dentro=0; continue; }
+    dentro++; if(dentro>R.tempo){ bloq=5; continue; } w[i]=1;
+  }
+  // tamanho pela volatilidade: vol de 20 dias contra a vol típica do histórico disponível
+  const r = c.map((x,i)=>i? x/c[i-1]-1 : 0), rv = [];
+  for(let i=20;i<n;i++){ const sl=r.slice(i-19,i+1), m=mean(sl); rv[i] = Math.sqrt(sl.reduce((s,x)=>s+(x-m)**2,0)/19) * Math.sqrt(R.per); }
+  const tv = median(rv.filter(x=>x>0)), vAgora = rv[n-1], tam = w[n-1] ? Math.min(1, tv/vAgora) : 0;
+  let desde = n-1; while(desde>0 && w[desde-1]===w[n-1]) desde--;
+  const px = c[n-1]; let gat = null;
+  if(a.cls==="crypto"){ const m50 = mean(c.slice(n-50)); gat = {txt:"média de 50 dias", nivel:m50, dist:px/m50-1}; }
+  else if(a.cls==="b3"){ gat = {txt:"preço de 21 pregões atrás", nivel:c[n-22], dist:px/c[n-22]-1}; }
+  else { const hi=Math.max(...c.slice(n-21,n-1)), lo=Math.min(...c.slice(n-11,n-1)); gat = base[n-1] ? {txt:"mínima de 10 dias (saída)", nivel:lo, dist:px/lo-1} : {txt:"máxima de 20 dias (entrada)", nivel:hi, dist:px/hi-1}; }
+  const pausa = base[n-1] && !w[n-1];
+  return {est:w[n-1], tam, vol:vAgora, tv, dias:n-1-desde, dentro, pausa, gat, px, R};
+}
+function regLog(a, g){ // registro ao vivo: guarda cada mudança de estado (e o tamanho) para medir a regra daqui em diante
+  if(!g || g.err) return; DB.regLog = DB.regLog || {}; const L = DB.regLog[a.sym] = DB.regLog[a.sym] || [];
+  const last = L[L.length-1], tam = +g.tam.toFixed(2);
+  if(!last || last.est!==g.est || (g.est && Math.abs(last.tam-tam)>=0.25)){ L.push({t:Date.now(), est:g.est, tam, px:g.px}); save(); }
+}
+function regAoVivo(a, px){ // resultado desde o início do registro: seguir a regra × segurar (custo por mudança, caixa sem juro)
+  const L = (DB.regLog||{})[a.sym]; if(!L || !L.length || !px) return null;
+  let eq = 1; const cu = CLASSES[a.cls].cost/2;
+  for(let i=0;i<L.length;i++){ const fim = i+1<L.length ? L[i+1].px : px; const pos = L[i].est ? L[i].tam : 0; eq *= 1 + pos*(fim/L[i].px - 1);
+    if(i) eq *= 1 - cu*Math.abs(pos - (L[i-1].est ? L[i-1].tam : 0)); }
+  return {desde:L[0].t, regra:eq-1, segurar:px/L[0].px-1, mudancas:L.length-1};
+}
+function renderRegime(){
+  const el = $("#trReg"); if(!el) return;
+  const rows = [], visto = new Set(); const teste = cls => visto.has(cls) ? `<span class="mut">mesma regra de ${esc(CLASSES[cls].label)}</span>` : (visto.add(cls), esc(REGRAS[cls].res));
+  for(const a of ASSETS.filter(x=>REGRAS[x.cls])){
+    const R = REGRAS[a.cls];
+    if(!R.nome){ rows.push(`<tr><td><b>${esc(a.sym)}</b></td><td colspan="5" class="mut">${visto.has(a.cls) ? "idem" : teste(a.cls)}</td><td><span class="badge b-n">sem regra</span></td></tr>`); continue; }
+    const g = regCalc(a);
+    if(!g || g.err){ rows.push(`<tr><td><b>${esc(a.sym)}</b></td><td colspan="6" class="mut">${esc(g?g.err:"sem dados")}</td></tr>`); continue; }
+    regLog(a, g); const v = regAoVivo(a, g.px);
+    const est = g.est ? `<span class="badge b-up">dentro</span>` : g.pausa ? `<span class="badge b-wr">pausa</span>` : `<span class="badge b-dn">fora</span>`;
+    const tamTxt = g.est ? `${Math.round(g.tam*100)}% da posição` : "0% (dinheiro no caixa)";
+    const det = g.est ? `há ${g.dias} dia(s); saída por tempo em ${Math.max(0, R.tempo-g.dentro+1)} dia(s)` : g.pausa ? "pausa de 5 dias depois da saída por tempo" : `há ${g.dias} dia(s)`;
+    rows.push(`<tr><td><b>${esc(a.sym)}</b><div class="mut" style="font-size:11px">${esc(CLASSES[a.cls].label)}</div></td><td>${est}<div class="mut" style="font-size:11px">${det}</div></td>
+      <td class="n">${tamTxt}<div class="mut" style="font-size:11px">vol ${(g.vol*100).toFixed(0)}% a.a. · típica ${(g.tv*100).toFixed(0)}%</div></td>
+      <td>${esc(R.nome)}<div class="mut" style="font-size:11px">${esc(g.gat.txt)}: ${fmtPx(g.gat.nivel,a.cur)} (preço ${pct(g.gat.dist,1)})</div></td>
+      <td class="n">${v ? `${pct(v.regra,1)} <span class="mut">× segurar ${pct(v.segurar,1)}</span><div class="mut" style="font-size:11px">desde ${fmtDay(v.desde)} · ${v.mudancas} mudança(s)</div>` : "—"}</td>
+      <td class="mut" style="font-size:12px;max-width:320px">${teste(a.cls)}</td><td><span class="badge b-wr">amarelo</span></td></tr>`);
+  }
+  el.innerHTML = `<div style="overflow-x:auto"><table><tr><th>Ativo</th><th>Estado</th><th class="n">Tamanho</th><th>Regra e gatilho</th><th class="n">Ao vivo</th><th>No teste</th><th>Selo</th></tr>${rows.join("")}</table></div>
+  <p class="note">Esta é a parte que funcionou nos testes de 26/11/2026: saber <b>quando estar dentro ou fora</b>, não acertar a direção de cada hora. A regra decide no fechamento do dia (aqui calculada com o preço de agora, então pode mudar até o fechamento). <b>Tamanho</b>: a posição diminui quando a volatilidade está acima da típica. <b>Selo amarelo</b>: as regras cortaram as quedas grandes fora da amostra, mas nenhuma passou na correção por testes múltiplos. <b>Ao vivo</b> mede a regra daqui em diante, com custo a cada mudança e sem juro do caixa. Nas compras em cripto, o melhor filtro testado foi justamente este: comprar só quando o ativo está <b>dentro</b>.</p>`;
+  $("#regInfo").textContent = "regras validadas fora da amostra, candles diários";
+}
+function regimeMarkdown(){
+  const L = ASSETS.filter(a=>REGRAS[a.cls] && REGRAS[a.cls].nome).map(a=>{ const g=regCalc(a); if(!g||g.err) return `| ${a.sym} | — | — | — | — |`; const v=regAoVivo(a,g.px);
+    return `| [[${NOTE_NAME[a.sym]||a.sym}]] | ${g.est?"dentro":g.pausa?"pausa":"fora"} | ${g.est?Math.round(g.tam*100)+"%":"0%"} | ${g.R.nome}; ${g.gat.txt} ${fmtPx(g.gat.nivel,a.cur)} (${pct(g.gat.dist,1)}) | ${v?`${pct(v.regra,1)} × segurar ${pct(v.segurar,1)} desde ${fmtDay(v.desde)}`:"—"} |`; }).join("\n");
+  return `---
+tipo: painel
+gerado_por: MF Tracker ${VERSION}
+atualizado: ${isoBRT(Date.now())}
+tags: [painel, regime]
+---
+# Regime ao vivo (dentro ou fora)
+_Regravado pelo programa a cada sincronização. Não editar à mão. Regras de coletor/pesquisa (26/11/2026), selo amarelo: cortaram quedas fora da amostra, sem passar na correção por testes múltiplos._
+
+| Ativo | Estado | Tamanho | Regra e gatilho | Ao vivo |
+|---|---|---|---|---|
+${L}
+`;
+}
 let TR_SUG = null;
 async function trSugestoes(){
   const el = $("#trSug"); el.innerHTML = `<p class="mut">buscando candles e calculando (pode levar até 1 minuto)…</p>`;
@@ -1516,11 +1610,12 @@ async function trSugestoes(){
 }
 function renderSug(){
   const el = $("#trSug"); if(!TR_SUG){ el.innerHTML = `<p class="mut">Clique em "Atualizar sugestões".</p>`; return; }
-  el.innerHTML = `<div style="overflow-x:auto"><table><tr><th>Ativo</th><th>Melhor combinação agora</th><th class="n">Chance</th><th class="n">Esperado por R$ 1.000</th><th>Selo</th><th>Leitura</th><th></th></tr>${TR_SUG.list.map(r=>{
-    const ok = r.selo.c==="verde" && r.p>=0.55 && r.e>0;
-    const leit = ok ? "sugestão: passou no teste e tem vantagem agora" : r.e<=0 ? "nenhuma combinação tem retorno esperado positivo depois dos custos" : r.selo.c!=="verde" ? "melhor do momento, mas sem validação: só estudo" : "vantagem pequena demais";
-    return `<tr><td><b>${esc(r.a.sym)}</b></td><td>${r.dir>0?"compra":"venda"} por ${esc(r.lbl)}</td><td class="n">${(r.p*100).toFixed(1)}%</td><td class="n ${r.e>=0?"up":"dn"}">${brl(1000*r.e)}</td><td>${seloBadge(r.selo)}</td><td class="${ok?"up":"mut"}">${leit}</td><td><button class="btn sm" data-trsug="${esc(r.a.sym)}|${r.hold}|${r.dir}">Simular</button></td></tr>`; }).join("")}</table></div>
-    <p class="note">Atualizado às ${new Date(TR_SUG.at).toLocaleTimeString("pt-BR")}. Para cada cripto, testa compra e venda em 1 h, 4 h, 12 h e 1 dia e mostra a de maior retorno esperado. "Sugestão" só aparece com selo verde, chance de pelo menos 55% e retorno esperado positivo depois dos custos.</p>`;
+  el.innerHTML = `<div style="overflow-x:auto"><table><tr><th>Ativo</th><th>Melhor combinação agora</th><th class="n">Chance</th><th class="n">Esperado por R$ 1.000</th><th>Regime</th><th>Selo</th><th>Leitura</th><th></th></tr>${TR_SUG.list.map(r=>{
+    const g = regCalc(r.a), contra = g && !g.err && r.dir>0 && !g.est;
+    const ok = r.selo.c==="verde" && r.p>=0.55 && r.e>0 && !contra;
+    const leit = contra ? "compra contra o regime (ativo fora): o teste indica evitar" : ok ? "sugestão: passou no teste e tem vantagem agora" : r.e<=0 ? "nenhuma combinação tem retorno esperado positivo depois dos custos" : r.selo.c!=="verde" ? "melhor do momento, mas sem validação: só estudo" : "vantagem pequena demais";
+    return `<tr><td><b>${esc(r.a.sym)}</b></td><td>${r.dir>0?"compra":"venda"} por ${esc(r.lbl)}</td><td class="n">${(r.p*100).toFixed(1)}%</td><td class="n ${r.e>=0?"up":"dn"}">${brl(1000*r.e)}</td><td>${g&&!g.err? (g.est?`<span class="badge b-up">dentro</span>`:`<span class="badge b-dn">fora</span>`) : "—"}</td><td>${seloBadge(r.selo)}</td><td class="${ok?"up":"mut"}">${leit}</td><td><button class="btn sm" data-trsug="${esc(r.a.sym)}|${r.hold}|${r.dir}">Simular</button></td></tr>`; }).join("")}</table></div>
+    <p class="note">Atualizado às ${new Date(TR_SUG.at).toLocaleTimeString("pt-BR")}. Para cada cripto, testa compra e venda em 1 h, 4 h, 12 h e 1 dia e mostra a de maior retorno esperado. "Sugestão" só aparece com selo verde, chance de pelo menos 55%, retorno esperado positivo depois dos custos e, nas compras, com o ativo dentro do regime.</p>`;
   el.querySelectorAll("[data-trsug]").forEach(b=>b.onclick=()=>{ const [s,h,d]=b.dataset.trsug.split("|"); $("#trAsset").value=s; $("#trHold").value=h; $("#trDir").value=d; trSimular(); window.scrollTo({top:0,behavior:"smooth"}); });
 }
 function initTrading(){
