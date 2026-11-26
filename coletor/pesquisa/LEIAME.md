@@ -14,6 +14,8 @@ Auditoria do modelo (nota `01 Projeto/Auditoria do modelo 2026-11-26.md`): `ml_c
 → `g1_auditoria_rodadas base|placebo|desloca|grupos` → `g2_auditoria_analise` → `g3_mc`.
 Custo baixo e entrada no regime (nota `01 Projeto/Custo baixo e entrada no regime 2026-11-26.md`): `i_custo_regime` (depois do `g1 base`).
 
+Mini índice (WIN), aproximado pelo Ibovespa e pelo BOVA11 em candles de 1 h: `j_mini_indice` (baixa o ^BVSP do Yahoo na primeira vez; precisa de `yfinance`). O teste de verdade precisa do histórico M1/M5 do WIN exportado do MetaTrader 5.
+
 ## Revisão do código (autoanálise)
 
 - `e_extremos_ml`: o treino só usa linhas cujo alvo terminou antes do mês de teste (embargo mensal);
