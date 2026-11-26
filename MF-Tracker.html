@@ -123,6 +123,7 @@ svg.spark{display:block}
   <div class="brand"><div class="logo"></div>MF Tracker <small>simulação · sem dinheiro real</small></div>
   <div class="tabs" id="tabs">
     <button class="tab on" data-v="painel">Painel</button>
+    <button class="tab" data-v="trading">Trading <span class="cnt" id="cntTr">0</span></button>
     <button class="tab" data-v="oport">Oportunidades <span class="cnt" id="cntOpen">0</span></button>
     <button class="tab" data-v="desemp">Desempenho</button>
     <button class="tab" data-v="radar">Radar memecoins</button>
@@ -155,6 +156,25 @@ svg.spark{display:block}
         <div class="card"><h3>Notícias ligadas ao ativo <span class="mut" style="text-transform:none;letter-spacing:0" id="newsAssetInfo"></span></h3><div class="news" id="newsAsset"></div></div>
         <div class="card"><h3>Contexto global e psicologia</h3><div id="ctxBox"></div></div>
       </div>
+    </section>
+    <!-- TRADING -->
+    <section class="view" id="v-trading">
+      <div class="banner">Simulação de trading: escolha o ativo, o valor e por quanto tempo a posição fica marcada. As contas usam candles reais do mesmo prazo. Nenhuma ordem é enviada. <b>Selo verde</b> só para combinações que passaram no teste fora da amostra; o resto é estatística do passado, para estudo.</div>
+      <div class="card"><h3>Simular posição</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div><label class="f">Ativo</label><select id="trAsset"></select></div>
+          <div><label class="f">Direção</label><select id="trDir"><option value="1">Compra (aposta na alta)</option><option value="-1">Venda (aposta na queda)</option></select></div>
+          <div><label class="f">Valor (R$)</label><input id="trAmt" type="number" min="1" step="1" value="1000" style="width:110px"></div>
+          <div><label class="f">Fica marcada por</label><select id="trHold"></select></div>
+          <div><label class="f">Stop (% contra, opcional)</label><input id="trStop" type="number" min="0" step="0.1" placeholder="ex.: 2" style="width:110px"></div>
+          <div><label class="f">Alvo (% a favor, opcional)</label><input id="trTgt" type="number" min="0" step="0.1" placeholder="ex.: 3" style="width:110px"></div>
+          <button class="btn pri" id="trGo">Calcular</button>
+        </div>
+        <div id="trRes" style="margin-top:14px"></div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3>Sugestões agora <span><button class="btn sm" id="trSugBtn">Atualizar sugestões</button></span></h3><div id="trSug"></div></div>
+      <div class="g4" id="trKpi" style="margin-top:14px"></div>
+      <div class="card" style="margin-top:14px"><h3>Posições de trading simuladas</h3><div id="trPos"></div></div>
     </section>
     <!-- OPORTUNIDADES -->
     <section class="view" id="v-oport">
@@ -226,7 +246,7 @@ svg.spark{display:block}
    MF Tracker v0.1 — motor de análise + diário de simulações
    Tudo roda no navegador. Fontes reais, sem dados inventados.
    ============================================================ */
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const DAY = 86400000;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -254,8 +274,8 @@ let DB = load();
   if(ch) save();
 })();
 function load(){
-  try{ const raw = localStorage.getItem(STORE_KEY); if(raw){ const d = JSON.parse(raw); d.settings = {...DEFAULT_SETTINGS, ...(d.settings||{})}; d.weights = {...DEFAULT_W, ...(d.weights||{})}; d.journal = d.journal||[]; d.cache = d.cache||{}; return d; } }catch(e){ console.warn(e); }
-  return {version:VERSION, settings:{...DEFAULT_SETTINGS}, weights:{...DEFAULT_W}, journal:[], cache:{}};
+  try{ const raw = localStorage.getItem(STORE_KEY); if(raw){ const d = JSON.parse(raw); d.settings = {...DEFAULT_SETTINGS, ...(d.settings||{})}; d.weights = {...DEFAULT_W, ...(d.weights||{})}; d.journal = d.journal||[]; d.trades = d.trades||[]; d.cache = d.cache||{}; return d; } }catch(e){ console.warn(e); }
+  return {version:VERSION, settings:{...DEFAULT_SETTINGS}, weights:{...DEFAULT_W}, journal:[], trades:[], cache:{}};
 }
 function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){ toast("Não consegui salvar no navegador: "+e.message); } }
 
@@ -1246,6 +1266,7 @@ function renderMethod(){
   <h4>7. Bancas simuladas</h4><p>A mesma operação roda em paralelo em várias bancas (padrão: R$ 50, 100, 300, 500, 1.000, 2.500, 5.000 e 10.000), com a mesma fração de Kelly. O programa respeita o valor mínimo de cada ordem (1 ação na B3, cerca de R$ 10 em cripto e EUA, R$ 5 em DEX) e desconta custos fixos e o deslizamento de preço em pools pequenos. Por isso uma banca pequena às vezes não consegue entrar, e isso fica registrado.</p>
   <h4>8. Memecoins novas (DEX)</h4><p>O radar lê os pools em tendência e os novos da GeckoTerminal e as moedas impulsionadas da DexScreener. Moedas acompanhadas usam candles por hora e prazos de 6, 24 e 72 horas, porque quase não têm histórico diário. Previsões de queda nessas moedas ficam só como previsão, porque não dá para vender a descoberto numa DEX. Se a liquidez despencar, a análise registra o risco de golpe.</p>
   <h4>O que o backtest mostrou (26/11/2026)</h4><p>Testei este método em 24 ativos, de 2012 (ou da listagem) até hoje, sem olhar o futuro. Resultado: <b>sem vantagem real</b>. As chances saíam cerca de 10 pontos acima do acerto real (corrigido nesta versão: a chance agora é puxada para a taxa base conforme o número de casos parecidos). Escolhendo fatores numa metade do histórico e testando na outra, o retorno acima da tendência média do mercado ficou em zero. Ou seja: hoje os registros deste programa são <b>estudo</b>, não sinal para operar. Relatórios completos no vault, em 01 Projeto/Backtest.</p>
+  <h4>Aba Trading</h4><p>Para qualquer ativo, valor e prazo (15 min a 14 dias), a aba busca candles reais do mesmo tamanho do prazo (cripto: Coinbase, até 1.200 candles; demais mercados: diários) e mede como terminaram todas as janelas passadas desse prazo: chance de lucro depois dos custos, resultado médio, faixa de 50% dos casos e extremos. Se houver histórico, filtra os momentos em que a pontuação técnica estava parecida com a de agora, puxando a chance para a taxa sem filtro (mesmo encolhimento K=100). Stop e alvo opcionais mostram qual costuma ser tocado primeiro. Cada posição marcada é avaliada sozinha no vencimento com preço real e vira nota TR- em 04 Operações. O selo vem de 99 Meta/validacao.json, gerado por coletor\backtest_intradiario.py: só verde significa vantagem confirmada fora da amostra.</p>
   <h4>Limites conhecidos (sinceridade)</h4><ul>
   <li>Memecoins novas têm poucas centenas de horas de histórico e são dominadas por baleias, bots e notícias de redes sociais que o programa ainda não lê (X/Telegram). Qualquer chance calculada para elas é bem menos confiável.</li>
   <li>Notícias e contexto global ainda <b>não têm calibração histórica</b> (não temos manchetes antigas). Por isso entram só como ajuste pequeno, e o aprendizado vai mostrar se ajudam.</li>
@@ -1260,6 +1281,237 @@ function renderAll(){ // um painel com erro não pode travar os outros nem o car
   for(const f of [renderSide, ()=>renderPanel(false), renderJournal, renderPerf, renderNews]){ try{ f(); }catch(e){ console.error(e); } }
 }
 function toast(m){ const t=$("#toast"); t.textContent=m; t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", 6000); }
+
+/* ---------------- Trading: simulador, sugestões e posições ---------------- */
+const TR_PRESETS = [[900,"15 min"],[1800,"30 min"],[3600,"1 hora"],[7200,"2 horas"],[14400,"4 horas"],[28800,"8 horas"],[43200,"12 horas"],[86400,"1 dia"],[172800,"2 dias"],[259200,"3 dias"],[604800,"7 dias"],[1209600,"14 dias"]];
+const CB_GRANS = [60,300,900,3600,21600,86400];
+let VALID = null; // 99 Meta/validacao.json do vault (selos do backtest de 1 hora)
+const DAILY_VALID = {data:"26/11/2026", txt:"testado em candles diários (3 a 14 dias): sem vantagem"};
+const TR_CACHE = {};
+let TR_LAST = null; // última simulação mostrada
+function trAsset(){ return ASSETS.find(a=>a.sym===$("#trAsset").value); }
+function trIntraday(a){ return a.src==="coinbase"; }
+function trGran(a, hold){
+  if(a.src==="gecko") return 3600;
+  if(!trIntraday(a)) return 86400;
+  let g = CB_GRANS[0]; for(const x of CB_GRANS) if(hold/x >= 3) g = x; return g;
+}
+function trBars(a, hold, g){
+  if(g===86400 && (a.cls==="b3"||a.cls==="us"||a.cls==="fx")) return Math.max(1, Math.round(hold/86400*5/7)); // pregões
+  return Math.max(1, Math.round(hold/g));
+}
+async function trCandles(a, g, pages=4){
+  if(g===86400 && !trIntraday(a)) return a.candles;
+  if(a.src==="gecko") return a.candles;
+  const key = a.sym+"|"+g+"|"+pages; const c = TR_CACHE[key]; if(c && Date.now()-c.at < 5*60000) return c.rows;
+  let end = Math.floor(Date.now()/1000), rows = [];
+  for(let p=0;p<pages;p++){
+    const start = end - 300*g;
+    const j = await getJSON(`https://api.exchange.coinbase.com/products/${a.pid}/candles?granularity=${g}&start=${new Date(start*1000).toISOString()}&end=${new Date(end*1000).toISOString()}`);
+    if(!Array.isArray(j) || !j.length) break;
+    rows = rows.concat(j.map(r=>({t:r[0], o:+r[3], h:+r[2], l:+r[1], c:+r[4], v:+r[5]})));
+    end = start; await sleep(150);
+  }
+  const m = new Map(); rows.forEach(r=>m.set(r.t,r)); rows = [...m.values()].sort((x,y)=>x.t-y.t);
+  TR_CACHE[key] = {at:Date.now(), rows}; return rows;
+}
+function quant(arr, q){ if(!arr.length) return NaN; const s=[...arr].sort((x,y)=>x-y); const i=(s.length-1)*q, lo=Math.floor(i), hi=Math.ceil(i); return s[lo]+(s[hi]-s[lo])*(i-lo); }
+/* Estatística da posição: histórico incondicional + casos parecidos com hoje (chance encolhida para a base, K=100). */
+function trStats(a, cands, h, dir, stopPct, tgtPct){
+  const cost = CLASSES[a.cls].cost, C = cands.map(k=>k.c), H = cands.map(k=>k.h), L = cands.map(k=>k.l), N = C.length;
+  if(N < h+30) return {err:`histórico curto demais para esse prazo (${N} candles)`};
+  const rr = [], stopFirst = [], tgtFirst = [];
+  for(let j=0;j<N-h;j++){
+    rr.push(dir*(C[j+h]/C[j]-1)-cost);
+    if(stopPct>0 || tgtPct>0){ let s=false, t=false;
+      for(let k=j+1;k<=j+h;k++){
+        const sHit = stopPct>0 && (dir>0 ? L[k]<=C[j]*(1-stopPct) : H[k]>=C[j]*(1+stopPct));
+        const tHit = tgtPct>0 && (dir>0 ? H[k]>=C[j]*(1+tgtPct) : L[k]<=C[j]*(1-tgtPct));
+        if(sHit){ s=true; break; } if(tHit){ t=true; break; } // os dois no mesmo candle: conta como stop (conservador)
+      } stopFirst.push(s); tgtFirst.push(t); }
+  }
+  const n = rr.length, wins = rr.filter(x=>x>0).length;
+  const pU = (wins+1)/(n+2), eU = mean(rr);
+  const out = {n, pU, eU, q05:quant(rr,.05), q25:quant(rr,.25), q50:quant(rr,.5), q75:quant(rr,.75), q95:quant(rr,.95), cost, h, N,
+    pStop: stopFirst.length? mean(stopFirst.map(Number)) : null, pTgt: tgtFirst.length? mean(tgtFirst.map(Number)) : null,
+    from: cands[0].t, to: cands[N-1].t};
+  // condicional: pontuação técnica de hoje contra a mesma pontuação no passado
+  if(N >= WARM+40+h){
+    const a2 = {cls:a.cls, candles:cands, tf: trGran(a, h)}; const I = indicators(a2);
+    const s = cands.map((_,i)=> i>=WARM-1 ? combine(factorRow(a2,I,i), BT_KEYS) : NaN);
+    const sNow = s[N-1]; let band = 0.08, idx = [];
+    const pool = []; for(let j=WARM;j<N-h;j++) if(isFinite(s[j])) pool.push(j);
+    while(band<=0.5){ idx = pool.filter(j=>Math.abs(s[j]-sNow)<=band); if(idx.length>=20) break; band+=0.04; }
+    if(idx.length>=12){
+      const r2 = idx.map(j=>dir*(C[j+h]/C[j]-1)-cost); const k = idx.length/(idx.length+SHRINK_K);
+      const pRaw = (r2.filter(x=>x>0).length+1)/(idx.length+2);
+      out.cond = {n:idx.length, band, sNow, pRaw, p: pU+(pRaw-pU)*k, e: eU+(mean(r2)-eU)*k};
+    }
+  }
+  return out;
+}
+function trSelo(a, hold){
+  if(a.cls==="crypto"||a.cls==="meme"){
+    if(hold >= 2.5*86400) return {c:"vermelho", txt: DAILY_VALID.txt};
+    if(!VALID || !VALID.itens || !VALID.itens[a.cls]) return {c:"cinza", txt:"ainda não testado (rode coletor\\backtest_intradiario.py e conecte o vault)"};
+    const hs = [1,4,12,24]; const hh = hold/3600; const near = hs.reduce((b,x)=>Math.abs(Math.log(x/hh))<Math.abs(Math.log(b/hh))?x:b, 1);
+    const v = VALID.itens[a.cls][near+"h"]; if(!v) return {c:"cinza", txt:"sem teste para esse prazo"};
+    const txt = {verde:"validado fora da amostra", amarelo:"indício fraco, não confirmado", vermelho:"testado: sem vantagem", cinza:"poucas operações no teste"}[v.selo]||v.selo;
+    return {c:v.selo, txt:`${txt} (teste de ${near} h, ${v.n} operações${v.acerto!=null?`, acerto ${(v.acerto*100).toFixed(0)}% contra base ${(v.base*100).toFixed(0)}%`:""})`};
+  }
+  if(a.cls==="dex") return {c:"cinza", txt:"memecoin nova: histórico curto demais para testar"};
+  return {c:"vermelho", txt: DAILY_VALID.txt + (hold<86400? " (esse mercado só tem candles diários aqui)" : "")};
+}
+const SELO_CSS = {verde:"b-up", amarelo:"b-wr", vermelho:"b-dn", cinza:"b-n"};
+function seloBadge(s){ return `<span class="badge ${SELO_CSS[s.c]||"b-n"}">${s.c==="verde"?"✓ ":""}${esc(s.c)}</span>`; }
+async function trSimular(){
+  const a = trAsset(); const hold = +$("#trHold").value, dir = +$("#trDir").value, amount = Math.max(0, +$("#trAmt").value||0);
+  const stopPct = (+$("#trStop").value||0)/100, tgtPct = (+$("#trTgt").value||0)/100;
+  if(a.cls==="dex" && dir<0){ $("#trRes").innerHTML = `<p class="note">Não dá para vender a descoberto em DEX. Use compra.</p>`; return; }
+  $("#trRes").innerHTML = `<p class="mut">calculando com candles reais…</p>`;
+  try{
+    const g = trGran(a, hold), h = trBars(a, hold, g);
+    if(g===86400 && hold<86400 && !trIntraday(a)) throw new Error("esse mercado só tem candles diários aqui: escolha 1 dia ou mais");
+    const cands = await trCandles(a, g);
+    const st = trStats(a, cands, h, dir, stopPct, tgtPct); if(st.err) throw new Error(st.err);
+    const price = a.live ?? cands[cands.length-1].c;
+    const p = st.cond ? st.cond.p : st.pU, e = st.cond ? st.cond.e : st.eU;
+    const selo = trSelo(a, hold);
+    TR_LAST = {sym:a.sym, hold, dir, amount, stopPct, tgtPct, g, h, p, e, st, price, selo};
+    const lbl = TR_PRESETS.find(x=>x[0]===hold)?.[1] || humanDur(hold*1000);
+    const gl = g>=86400? "diários" : g>=3600? `de ${g/3600} h` : `de ${g/60} min`;
+    $("#trRes").innerHTML = `
+      <div class="hdr" style="margin:0 0 10px"><div><div class="t">${dir>0?"Compra":"Venda"} de ${esc(a.sym)} por ${esc(lbl)}</div>
+      <div class="meta">preço agora ${fmtPx(price,a.cur)} · candles ${gl} · ${st.n} janelas de ${h} candle${h>1?"s":""} de ${new Date(st.from*1000).toLocaleDateString("pt-BR")} a ${new Date(st.to*1000).toLocaleDateString("pt-BR")}</div></div>
+      <div class="sp"></div>${seloBadge(selo)}</div>
+      <div class="g4">
+        <div class="card kpi"><div class="l">Chance de lucro (após custos)</div><div class="v ${p>=0.5?"up":"dn"}">${(p*100).toFixed(1)}%</div><div class="s">sem filtro: ${(st.pU*100).toFixed(1)}%${st.cond?` · casos parecidos: ${st.cond.n}`:""}</div></div>
+        <div class="card kpi"><div class="l">Resultado esperado</div><div class="v ${e>=0?"up":"dn"}">${brl(amount*e)}</div><div class="s">${pct(e)} por operação</div></div>
+        <div class="card kpi"><div class="l">Faixa provável (50% dos casos)</div><div class="v" style="font-size:16px">${brl(amount*st.q25)} a ${brl(amount*st.q75)}</div><div class="s">mediana ${brl(amount*st.q50)}</div></div>
+        <div class="card kpi"><div class="l">Extremos (5% piores / melhores)</div><div class="v" style="font-size:16px"><span class="dn">${brl(amount*st.q05)}</span> / <span class="up">${brl(amount*st.q95)}</span></div><div class="s">custo de ida e volta ${pct(st.cost)} = ${brl(amount*st.cost)}</div></div>
+      </div>
+      ${(stopPct||tgtPct)?`<p class="note">Nessas janelas, o preço tocou ${stopPct?`o stop (${pct(-stopPct)}) primeiro em <b>${(st.pStop*100).toFixed(0)}%</b>`:""}${stopPct&&tgtPct?" e ":""}${tgtPct?`o alvo (${pct(tgtPct)}) primeiro em <b>${(st.pTgt*100).toFixed(0)}%</b>`:""} dos casos.</p>`:""}
+      <p class="note"><b>Selo:</b> ${esc(selo.txt)}. ${selo.c==="verde" ? "Essa combinação passou no teste fora da amostra; ainda assim, confirme no placar ao vivo." : "Sem selo verde, trate esta chance como estatística do passado, não como sinal: o teste não mostrou vantagem confiável."}</p>
+      <div style="margin-top:10px"><button class="btn pri" id="trMark">Marcar posição simulada</button> <span class="mut" style="font-size:12px">avaliada sozinha em ${esc(lbl)}, com preço real</span></div>`;
+    $("#trMark").onclick = trMarcar;
+  }catch(err){ $("#trRes").innerHTML = `<p class="note dn">Não consegui calcular: ${esc(err.message)}</p>`; }
+}
+function trMarcar(){
+  const s = TR_LAST; if(!s) return; const a = ASSETS.find(x=>x.sym===s.sym); const now = Date.now();
+  const t = {id: now.toString(36)+Math.random().toString(36).slice(2,6), v:VERSION, sym:a.sym, name:a.name, cls:a.cls, cur:a.cur, pid:a.pid||null, src:a.src,
+    dir:s.dir, amount:s.amount, holdSec:s.hold, g:s.g, bars:s.h, createdAt:now, deadline: now + s.hold*1000, entry: s.price,
+    prob:s.p, probBase:s.st.pU, exp:s.e, cost:s.st.cost, stopPct:s.stopPct, tgtPct:s.tgtPct,
+    stop: s.stopPct? s.price*(1-s.dir*s.stopPct) : null, target: s.tgtPct? s.price*(1+s.dir*s.tgtPct) : null,
+    q:{q05:s.st.q05,q25:s.st.q25,q50:s.st.q50,q75:s.st.q75,q95:s.st.q95}, selo:s.selo, analogs: s.st.cond? s.st.cond.n : 0, status:"open"};
+  DB.trades = DB.trades||[]; DB.trades.unshift(t); save(); renderTrades(); trVault(t);
+  toast(`Posição simulada marcada: ${t.dir>0?"compra":"venda"} de ${t.sym}, ${brl(t.amount)}, vence ${new Date(t.deadline).toLocaleString("pt-BR")}.`);
+}
+let trEvalBusy = false;
+async function evaluateTrades(){
+  if(trEvalBusy) return; trEvalBusy = true; let n = 0;
+  try{
+    for(const t of (DB.trades||[]).filter(x=>x.status==="open" && Date.now()>=x.deadline)){
+      const a = ASSETS.find(x=>x.sym===t.sym); if(!a) continue;
+      let exit=null, hi=-Infinity, lo=Infinity, exitAt=t.deadline;
+      try{
+        if(t.src==="coinbase"){
+          const span = (t.deadline - t.createdAt)/1000; let g = CB_GRANS.find(x=>span/x <= 290) || 86400;
+          const start = Math.floor(t.createdAt/1000) - g, end = Math.floor(t.deadline/1000) + g;
+          const j = await getJSON(`https://api.exchange.coinbase.com/products/${t.pid}/candles?granularity=${g}&start=${new Date(start*1000).toISOString()}&end=${new Date(end*1000).toISOString()}`);
+          const rows = j.map(r=>({t:r[0], h:+r[2], l:+r[1], c:+r[4]})).sort((x,y)=>x.t-y.t);
+          const inside = rows.filter(r=> r.t+g > t.createdAt/1000 && r.t + g <= t.deadline/1000 + 1);
+          if(!inside.length){ if(Date.now()-t.deadline < 10*60000) continue; throw new Error("sem candles no período"); }
+          const last = inside[inside.length-1]; exit = last.c; exitAt = (last.t+g)*1000;
+          inside.forEach(r=>{ hi=Math.max(hi,r.h); lo=Math.min(lo,r.l); });
+        } else {
+          const tf = tfOf(a), dl = Math.floor(t.deadline/1000);
+          const isNowBar = bk(a,dl) >= bk(a,Math.floor(Date.now()/1000));
+          if(isNowBar){ if(!liveFresh(a)) continue; exit = a.live; exitAt = Date.now(); }
+          else { let ec=null; for(const k of a.candles) if(bk(a,k.t)<=bk(a,dl)) ec=k; if(!ec) continue; exit = ec.c; exitAt = (ec.t+tf)*1000; }
+          a.candles.filter(k=>bk(a,k.t)>=bk(a,Math.floor(t.createdAt/1000)) && bk(a,k.t)<=bk(a,dl)).forEach(k=>{ hi=Math.max(hi,k.h); lo=Math.min(lo,k.l); });
+          hi=Math.max(hi,exit); lo=Math.min(lo,exit);
+        }
+      }catch(e){ console.warn("avaliação de trading", t.sym, e); continue; }
+      const ret = exit/t.entry-1, retNet = t.dir*ret - t.cost, hit = retNet>0;
+      const stopHit = t.stop!=null && (t.dir>0 ? lo<=t.stop : hi>=t.stop), tgtHit = t.target!=null && (t.dir>0 ? hi>=t.target : lo<=t.target);
+      const inRange = retNet>=t.q.q25 && retNet<=t.q.q75;
+      const lessons = [hit ? `Acertou: ${pct(retNet)} líquido.` : `Errou: ${pct(retNet)} líquido.`,
+        `O resultado ficou ${inRange?"dentro":"fora"} da faixa provável calculada na entrada (${pct(t.q.q25)} a ${pct(t.q.q75)}).`];
+      if(stopHit) lessons.push(`O stop (${fmtPx(t.stop,t.cur)}) foi tocado no caminho.`);
+      if(tgtHit && !hit) lessons.push(`O alvo foi tocado e o preço voltou: sair no alvo teria dado lucro.`);
+      t.status="closed"; t.result = {exit, exitAt, ret, retNet, hit, pnl:t.amount*retNet, stopHit, tgtHit, mfe: t.dir>0? hi/t.entry-1 : 1-lo/t.entry, mae: t.dir>0? 1-lo/t.entry : hi/t.entry-1, inRange, lessons, evaluatedAt:Date.now()};
+      n++; trVault(t);
+    }
+  } finally { trEvalBusy = false; }
+  if(n){ save(); renderTrades(); toast(`${n} ${n>1?"posições de trading avaliadas":"posição de trading avaliada"}.`); }
+}
+function trPlacar(){
+  const c = (DB.trades||[]).filter(t=>t.status==="closed"); const n=c.length;
+  const hits = c.filter(t=>t.result.hit).length, pnl = c.reduce((s,t)=>s+t.result.pnl,0), predicted = n? mean(c.map(t=>t.prob)) : null;
+  const inR = n? mean(c.map(t=>t.result.inRange?1:0)) : null;
+  return {n, hits, pnl, acc: n? hits/n : null, predicted, inR};
+}
+function renderTrades(){
+  const el = $("#trPos"); if(!el) return; const T = DB.trades||[];
+  const cnt = $("#cntTr"); if(cnt) cnt.textContent = T.filter(t=>t.status==="open").length;
+  const P = trPlacar();
+  $("#trKpi").innerHTML = [["Posições encerradas", P.n, P.n<30?"menos de 30: ainda é amostra pequena":"amostra já permite comparar"],
+    ["Acerto real", P.acc==null?"—":(P.acc*100).toFixed(0)+"%", P.predicted==null?"":"chance média prevista "+(P.predicted*100).toFixed(0)+"%"],
+    ["Resultado somado", brl(P.pnl), "valores simulados"],
+    ["Caiu na faixa prevista", P.inR==null?"—":(P.inR*100).toFixed(0)+"%", "o certo é perto de 50%"]].map(([l,v,s])=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+  if(!T.length){ el.innerHTML = `<p class="mut">Nenhuma posição marcada ainda. Simule acima e clique em "Marcar posição simulada".</p>`; return; }
+  el.innerHTML = `<div style="overflow-x:auto"><table><tr><th>Entrada</th><th>Ativo</th><th>Direção</th><th class="n">Valor</th><th>Prazo</th><th class="n">Chance</th><th>Selo</th><th class="n">Resultado</th><th>Situação</th></tr>${T.slice(0,60).map(t=>{
+    const lbl = TR_PRESETS.find(x=>x[0]===t.holdSec)?.[1] || humanDur(t.holdSec*1000);
+    const r = t.result; const res = r? `<span class="${r.pnl>=0?"up":"dn"}">${brl(r.pnl)} (${pct(r.retNet)})</span>` : `<span class="mut">vence ${new Date(t.deadline).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>`;
+    return `<tr><td>${new Date(t.createdAt).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td><td><b>${esc(t.sym)}</b></td><td>${t.dir>0?"compra":"venda"}</td><td class="n">${brl(t.amount)}</td><td>${esc(lbl)}</td><td class="n">${(t.prob*100).toFixed(0)}%</td><td>${seloBadge(t.selo||{c:"cinza"})}</td><td class="n">${res}</td><td>${t.status==="open"?"aberta":r.hit?"acertou":"errou"}</td></tr>`; }).join("")}</table></div>`;
+}
+function trMarkdown(t){
+  const r = t.result, lbl = TR_PRESETS.find(x=>x[0]===t.holdSec)?.[1] || humanDur(t.holdSec*1000);
+  return `---\ntipo: trading-simulado\nid: ${t.id}\nativo: ${t.sym}\nmercado: ${MKT[t.cls]||t.cls}\ndirecao: ${t.dir>0?"compra":"venda"}\nvalor_simulado: ${t.amount}\nprazo: "${lbl}"\nentrada: ${isoBRT(t.createdAt)}\nvencimento: ${isoBRT(t.deadline)}\npreco_entrada: ${t.entry}\nchance: ${t.prob.toFixed(4)}\nchance_sem_filtro: ${t.probBase.toFixed(4)}\nselo: ${t.selo?t.selo.c:"cinza"}\nstatus: ${t.status==="open"?"aberta":"encerrada"}\n${r?`resultado: ${r.hit?"acerto":"erro"}\nretorno_liquido: ${r.retNet.toFixed(5)}\npnl: ${r.pnl.toFixed(2)}\npreco_saida: ${r.exit}\n`:""}versao_programa: ${VERSION}\ntags: [trading, simulacao]\n---\n\n# ${t.dir>0?"Compra":"Venda"} simulada de ${t.sym} por ${lbl}\n\n- Valor: ${brl(t.amount)} · preço de entrada ${fmtPx(t.entry,t.cur)} · vence ${new Date(t.deadline).toLocaleString("pt-BR")}\n- Chance de lucro calculada: ${(t.prob*100).toFixed(1)}% (sem filtro ${(t.probBase*100).toFixed(1)}%, casos parecidos ${t.analogs})\n- Faixa provável (50% dos casos): ${pct(t.q.q25)} a ${pct(t.q.q75)} · extremos ${pct(t.q.q05)} / ${pct(t.q.q95)}\n- Selo de validação: ${t.selo?t.selo.c+" — "+t.selo.txt:"—"}\n${t.stop?`- Stop: ${fmtPx(t.stop,t.cur)}\n`:""}${t.target?`- Alvo: ${fmtPx(t.target,t.cur)}\n`:""}${r?`\n## Resultado\n\n- Saída ${fmtPx(r.exit,t.cur)} → ${pct(r.retNet)} líquido = **${brl(r.pnl)}** (${r.hit?"acerto":"erro"})\n- Melhor momento ${pct(r.mfe)} · pior momento ${pct(-r.mae)}\n${r.lessons.map(l=>"- "+l).join("\n")}\n`:""}`;
+}
+async function trVault(t){
+  if(VAULT_STATE!=="ok") return;
+  try{ const d = new Date(t.createdAt - 3*3600000).toISOString();
+    await writeFile(["04 Operações"], `TR-${d.slice(0,10).replace(/-/g,"")}-${d.slice(11,16).replace(":","")}-${t.sym}.md`, trMarkdown(t)); }catch(e){ console.warn("vault trading", e); }
+}
+async function loadValid(){
+  if(VAULT_STATE!=="ok") return;
+  try{ const d = await VAULT.getDirectoryHandle("99 Meta"); const fh = await d.getFileHandle("validacao.json"); VALID = JSON.parse(await (await fh.getFile()).text()); }catch(e){ VALID = null; }
+}
+let TR_SUG = null;
+async function trSugestoes(){
+  const el = $("#trSug"); el.innerHTML = `<p class="mut">buscando candles e calculando (pode levar até 1 minuto)…</p>`;
+  const holds = [[3600,"1 hora"],[14400,"4 horas"],[43200,"12 horas"],[86400,"1 dia"]];
+  const rows = [];
+  for(const a of ASSETS.filter(x=>x.src==="coinbase")){
+    for(const [hold,lbl] of holds){
+      try{
+        const g = trGran(a, hold), h = trBars(a, hold, g); const c = await trCandles(a, g, 3);
+        for(const dir of [1,-1]){ const st = trStats(a, c, h, dir, 0, 0); if(st.err) continue;
+          const p = st.cond? st.cond.p : st.pU, e = st.cond? st.cond.e : st.eU;
+          rows.push({a, hold, lbl, dir, p, e, n: st.cond? st.cond.n : 0, selo: trSelo(a, hold)}); }
+      }catch(err){ console.warn("sugestão", a.sym, err); }
+    }
+  }
+  const best = {}; rows.forEach(r=>{ const b = best[r.a.sym]; if(!b || r.e > b.e) best[r.a.sym] = r; });
+  TR_SUG = {at:Date.now(), list:Object.values(best).sort((x,y)=>y.e-x.e)};
+  renderSug();
+}
+function renderSug(){
+  const el = $("#trSug"); if(!TR_SUG){ el.innerHTML = `<p class="mut">Clique em "Atualizar sugestões".</p>`; return; }
+  el.innerHTML = `<div style="overflow-x:auto"><table><tr><th>Ativo</th><th>Melhor combinação agora</th><th class="n">Chance</th><th class="n">Esperado por R$ 1.000</th><th>Selo</th><th>Leitura</th><th></th></tr>${TR_SUG.list.map(r=>{
+    const ok = r.selo.c==="verde" && r.p>=0.55 && r.e>0;
+    const leit = ok ? "sugestão: passou no teste e tem vantagem agora" : r.e<=0 ? "nenhuma combinação tem retorno esperado positivo depois dos custos" : r.selo.c!=="verde" ? "melhor do momento, mas sem validação: só estudo" : "vantagem pequena demais";
+    return `<tr><td><b>${esc(r.a.sym)}</b></td><td>${r.dir>0?"compra":"venda"} por ${esc(r.lbl)}</td><td class="n">${(r.p*100).toFixed(1)}%</td><td class="n ${r.e>=0?"up":"dn"}">${brl(1000*r.e)}</td><td>${seloBadge(r.selo)}</td><td class="${ok?"up":"mut"}">${leit}</td><td><button class="btn sm" data-trsug="${esc(r.a.sym)}|${r.hold}|${r.dir}">Simular</button></td></tr>`; }).join("")}</table></div>
+    <p class="note">Atualizado às ${new Date(TR_SUG.at).toLocaleTimeString("pt-BR")}. Para cada cripto, testa compra e venda em 1 h, 4 h, 12 h e 1 dia e mostra a de maior retorno esperado. "Sugestão" só aparece com selo verde, chance de pelo menos 55% e retorno esperado positivo depois dos custos.</p>`;
+  el.querySelectorAll("[data-trsug]").forEach(b=>b.onclick=()=>{ const [s,h,d]=b.dataset.trsug.split("|"); $("#trAsset").value=s; $("#trHold").value=h; $("#trDir").value=d; trSimular(); window.scrollTo({top:0,behavior:"smooth"}); });
+}
+function initTrading(){
+  $("#trAsset").innerHTML = ASSETS.map(a=>`<option value="${esc(a.sym)}">${esc(a.sym)} · ${esc(CLASSES[a.cls].label)}</option>`).join("");
+  $("#trHold").innerHTML = TR_PRESETS.map(([s,l])=>`<option value="${s}">${l}</option>`).join(""); $("#trHold").value = "14400";
+  $("#trGo").onclick = trSimular; $("#trSugBtn").onclick = trSugestoes;
+  renderTrades(); renderSug();
+}
 
 /* ---------------- Navegação e config ---------------- */
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{ document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b)); document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on", v.id==="v-"+b.dataset.v)); if(b.dataset.v==="painel" && chart) setTimeout(()=>renderChart(ASSETS.find(x=>x.sym===SEL)),0); if(b.dataset.v==="desemp") renderPerf(); });
@@ -1296,12 +1548,12 @@ async function cycle(){
     if(Date.now()-lastFull > 5*60000){ lastFull=Date.now(); try{ await loadBrapi(ASSETS.filter(a=>a.src==="brapi"), false); feedOk("brapi"); }catch(e){ feedErr("brapi",e); } const fx=ASSETS.find(a=>a.src==="awesome"); try{ await liveAwesome(fx); feedOk("awesome"); }catch(e){ feedErr("awesome",e); } await loadContext(); await loadNews(false); }
     if(Date.now()-lastDex > 60000){ lastDex=Date.now(); await tickDex(); }
     if(Date.now()-lastRadar > 10*60000){ lastRadar=Date.now(); loadRadar().then(evaluateRadar); loadDex().then(()=>{ runAnalysis(); renderAll(); }); }
-    runAnalysis(); evaluateDue(); renderAll();
+    runAnalysis(); evaluateDue(); renderAll(); evaluateTrades();
     if(Date.now()-lastQuotes > 15*60000){ lastQuotes=Date.now(); syncVault(); }
   }catch(e){ console.error(e); }
 }
 async function boot(){
-  renderMethod(); fillCfg(); initChart(); renderFeeds(); renderAll(); initVault();
+  renderMethod(); fillCfg(); initChart(); renderFeeds(); renderAll(); initVault().then(loadValid); initTrading();
   // cada fonte desenha a tela assim que chega, sem esperar as mais lentas (DEX e brapi têm filas)
   let first=true; const step = pr => pr.then(()=>{ runAnalysis(); renderAll(); if(first){ first=false; renderPanel(true); } }).catch(e=>console.error(e));
   await Promise.all([step(loadContext()), step(loadAllCandles()), step(loadNews(false)), step(loadDex())]);
