@@ -129,6 +129,7 @@ svg.spark{display:block}
     <button class="tab" data-v="radar">Radar memecoins</button>
     <button class="tab" data-v="noticias">Notícias</button>
     <button class="tab" data-v="metodo">Metodologia</button>
+    <button class="tab" data-v="professor">Professor</button>
     <button class="tab" data-v="config">Configurações</button>
   </div>
   <div class="sp"></div>
@@ -215,6 +216,13 @@ svg.spark{display:block}
     </section>
     <!-- METODOLOGIA -->
     <section class="view method" id="v-metodo"><div class="card" id="methodBox"></div></section>
+    <!-- PROFESSOR -->
+    <section class="view" id="v-professor">
+      <div class="card"><h3 style="text-transform:none;letter-spacing:0;font-size:17px">Professor: o mercado explicado do zero</h3>
+        <p class="note" style="margin-top:4px">Escrito para quem nunca investiu. Leia na ordem ou procure um termo (ex.: "stop", "candle", "regime").</p>
+        <input id="profQ" placeholder="Procurar um termo ou assunto…" style="width:100%;margin-top:8px"></div>
+      <div id="profBox"></div>
+    </section>
     <!-- CONFIG -->
     <section class="view" id="v-config">
       <div class="g2" style="margin-top:0">
@@ -249,7 +257,7 @@ svg.spark{display:block}
    MF Tracker v0.1 — motor de análise + diário de simulações
    Tudo roda no navegador. Fontes reais, sem dados inventados.
    ============================================================ */
-const VERSION = "0.5.1";
+const VERSION = "0.6.0";
 const DAY = 86400000;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -1681,6 +1689,276 @@ function botsMarkdown(){
   return BOTS.map(b=>{ const cfg=(DB.bots||{})[b.cls]||{valor:1000}; const st=botStats(b.cls, cfg.valor||1000); if(!st) return `| ${b.nome} | — | — | — | — | — | — |`; const v=botAoVivo(b.cls,cfg,cfg.valor||1000);
     return `| ${b.nome} | ${brl(st.ganho)} / ${brl(st.perda)} | ${(st.acerto*100).toFixed(1)}% | ${brl(st.esp)} | ${pct(-st.queda,1)} | ${pct(st.total,1)} × ${pct(st.bhT,1)} | ${v? `${brl(v.rs)} em ${v.dias} dia(s) desde ${fmtDay(cfg.since)}` : "desligado"} |`; }).join("\n");
 }
+/* ---------------- Professor: o mercado explicado do zero ---------------- */
+const PROF = [
+{id:"comeco", t:"1. O que é o mercado", h:`
+<p>Imagine uma <b>feira</b>. Tem gente querendo vender laranja e gente querendo comprar. Se muita gente quer laranja e tem pouca laranja, o preço sobe. Se sobra laranja e ninguém quer, o preço cai. O mercado financeiro é exatamente isso, só que em vez de laranja as pessoas trocam <b>pedaços de empresas</b>, <b>moedas</b> e <b>moedas digitais</b>.</p>
+<h4>O que se compra e vende</h4>
+<ul>
+<li><b>Ação</b>: um pedacinho de uma empresa. Quem tem uma ação da Petrobras (PETR4) é "dono" de uma parte minúscula dela. Se a empresa vai bem e as pessoas acham que vai continuar indo, mais gente quer o pedacinho e o preço sobe.</li>
+<li><b>Bolsa de valores</b>: o "prédio da feira" onde as ações são negociadas. No Brasil é a <b>B3</b>. Nos Estados Unidos, as mais famosas são a <b>NYSE</b> e a <b>Nasdaq</b>.</li>
+<li><b>Índice</b>: uma "média" de várias ações, para saber se a feira inteira está subindo ou caindo. O <b>Ibovespa</b> resume as principais ações brasileiras; o <b>S&P 500</b> resume as 500 maiores empresas americanas.</li>
+<li><b>Criptomoeda</b>: dinheiro que só existe no computador, registrado numa espécie de caderno público que ninguém consegue apagar (a <b>blockchain</b>). O <b>Bitcoin (BTC)</b> foi a primeira; o <b>Ethereum (ETH)</b> é a segunda maior.</li>
+<li><b>Memecoin</b>: criptomoeda criada como piada ou por causa de um meme (DOGE, SHIB, PEPE). O preço depende quase só de moda e de atenção nas redes. Sobe muito e cai muito.</li>
+<li><b>Câmbio (dólar)</b>: o preço de uma moeda em outra. "Dólar a R$ 5,80" quer dizer que um dólar custa 5 reais e 80 centavos.</li>
+</ul>
+<h4>Quem participa</h4>
+<p>Pessoas comuns, bancos, fundos (que juntam o dinheiro de muita gente), empresas e <b>robôs</b> (programas que compram e vendem sozinhos, muito rápido). Você nunca negocia direto na bolsa: usa uma <b>corretora</b> (XP, Rico, BTG...) ou, em cripto, uma <b>exchange</b> (Binance, Mercado Bitcoin...). Elas são a "porta de entrada" e cobram por isso.</p>
+<h4>Por que o preço muda o tempo todo</h4>
+<p>Porque a cada segundo alguém muda de ideia. Saiu uma notícia, alguém precisou de dinheiro, um robô viu um padrão, o medo aumentou. O preço é só o último valor em que um comprador e um vendedor concordaram.</p>`},
+
+{id:"ganhar", t:"2. Como se ganha e como se perde", h:`
+<h4>Comprar barato e vender caro</h4>
+<p>Você compra uma ação a R$ 10 e vende a R$ 12. Ganhou R$ 2 por ação, ou <b>20%</b>. Se vender a R$ 8, perdeu R$ 2, ou <b>−20%</b>. Isso se chama <b>retorno</b>: quanto o dinheiro cresceu ou encolheu, em porcentagem.</p>
+<h4>Ganhar com a queda (venda a descoberto)</h4>
+<p>Dá para apostar que o preço vai cair: você "pega emprestado" um ativo, vende agora a R$ 10, e depois recompra a R$ 8 para devolver. Ficou com R$ 2. Isso se chama <b>vender a descoberto</b> ou ficar <b>"vendido"</b>. Quem compra apostando na alta está <b>"comprado"</b>. Atenção: na venda a descoberto a perda não tem limite, porque o preço pode subir sem parar.</p>
+<h4>A matemática traiçoeira das perdas</h4>
+<p>Se você perde 50%, precisa ganhar <b>100%</b> para voltar ao ponto de partida (R$ 100 vira R$ 50, e R$ 50 precisa dobrar para voltar a R$ 100). Por isso, <b>evitar grandes quedas importa mais do que pegar grandes altas</b>. Foi exatamente o que os testes do MF Tracker mostraram: as regras que funcionam são as que tiram você do mercado nas quedas fortes.</p>
+<h4>Juros compostos</h4>
+<p>É "juros sobre juros". R$ 1.000 rendendo 1% ao mês viram R$ 1.010 no primeiro mês, R$ 1.020,10 no segundo (1% sobre 1.010), e assim por diante. Em 10 anos, viram cerca de R$ 3.300. O mesmo efeito funciona ao contrário com perdas e custos pequenos repetidos muitas vezes.</p>
+<h4>Os custos escondidos</h4>
+<ul>
+<li><b>Taxa (corretagem ou fee)</b>: o que a corretora cobra por operação. Ex.: 0,10% na Binance. Comprar e vender = pagar duas vezes ("ida e volta").</li>
+<li><b>Spread</b>: a diferença entre o preço de quem quer comprar e o de quem quer vender. Se alguém compra a R$ 9,99 e alguém vende a R$ 10,01, você compra a 10,01 e, se vender na hora, recebe 9,99. Perdeu 2 centavos sem o preço "mudar".</li>
+<li><b>Deslizamento (slippage)</b>: quando você manda a ordem e o preço anda antes de ela ser executada. Acontece mais em ativos pouco negociados e em momentos agitados.</li>
+<li><b>Emolumentos</b>: taxas da própria bolsa (B3). Pequenas, mas existem mesmo com "corretagem zero".</li>
+<li><b>Impostos</b>: ganho em bolsa e cripto pode pagar imposto de renda. As regras mudam; confira com um contador.</li>
+</ul>
+<p><b>Exemplo real do MF Tracker:</b> o nosso melhor modelo de previsão de horas ganhava, em média, 0,11% por operação antes dos custos. Com 0,30% de custo de ida e volta, cada operação vira −0,19%. Fazendo 5 operações por dia, o dinheiro derrete. <b>Quem opera muito paga muito.</b></p>`},
+
+{id:"risco", t:"3. Risco: o lado que ninguém mostra", h:`
+<p>Risco é a chance de as coisas darem errado e <b>o tamanho do estrago</b> quando dão. Dois investimentos podem render a mesma média, mas um balança pouco e o outro parece montanha-russa.</p>
+<h4>Volatilidade</h4>
+<p>Mede o quanto o preço balança. Uma ação que sobe e desce 1% por dia é pouco volátil; uma memecoin que sobe 30% num dia e cai 25% no outro é muito volátil. No MF Tracker aparece como "vol % ao ano". <b>Volatilidade alta = resultados mais imprevisíveis</b>, para cima e para baixo.</p>
+<h4>Maior queda (drawdown)</h4>
+<p>É a maior perda desde o ponto mais alto até o ponto mais baixo. Se sua banca foi de R$ 1.000 a R$ 1.500 e depois caiu para R$ 900, a maior queda foi de 40% (de 1.500 para 900). É a pergunta mais honesta que existe: <b>"quanto eu teria aguentado perder no pior momento?"</b> Quem segurou cripto em 2022 viu quedas de mais de 60%.</p>
+<h4>Diversificação</h4>
+<p>"Não colocar todos os ovos na mesma cesta." Se você tem várias coisas que não andam juntas, quando uma cai a outra pode segurar. Cuidado: BTC, ETH, SOL e XRP <b>andam quase sempre juntos</b>, então ter os quatro não é tão diversificado quanto parece. Isso se chama <b>correlação</b>.</p>
+<h4>Alavancagem</h4>
+<p>Operar com mais dinheiro do que você tem, usando empréstimo da corretora. Com alavancagem de 10 vezes, uma alta de 1% vira 10% de ganho, mas uma queda de 10% <b>zera</b> você. Mini índice e mini dólar são alavancados por natureza. É o jeito mais rápido de perder tudo.</p>
+<h4>Tamanho da posição</h4>
+<p>Quanto da banca colocar em cada operação. Uma regra comum é arriscar no máximo 1% da banca por operação. O MF Tracker usa outra ideia que funcionou nos testes: <b>diminuir a posição quando a volatilidade está alta</b> ("tamanho pela vol"). Se o mercado está agitado, você entra com menos.</p>
+<h4>Stop (stop loss) e alvo</h4>
+<p><b>Stop</b> é uma ordem para sair automaticamente se o preço cair até certo ponto, para limitar a perda. <b>Alvo</b> (take profit) é sair quando o preço chega no lucro desejado. Ex.: comprou a R$ 100, stop em R$ 95, alvo em R$ 115. Arriscou R$ 5 para ganhar R$ 15: relação de <b>3 para 1</b>. Nos testes do MF Tracker, stop e alvo sozinhos <b>não</b> criaram vantagem: eles só mudam o formato dos resultados, não o resultado médio.</p>`},
+
+{id:"analises", t:"4. Os jeitos de analisar", h:`
+<h4>Análise fundamentalista</h4>
+<p>Olha a "saúde" da empresa ou do ativo: lucro, dívidas, crescimento, quanto ela vale comparada ao preço. É como avaliar uma padaria: vende bem? Deve muito? O aluguel vai subir? Serve mais para prazos longos (meses e anos).</p>
+<h4>Análise técnica</h4>
+<p>Olha só o <b>gráfico do preço e do volume</b>, procurando padrões: tendência, suporte, resistência, indicadores. A ideia é que o comportamento das pessoas se repete. É a base do guia de Murphy que está no vault. <b>Aviso honesto:</b> nos 76 mil palpites testados pelo MF Tracker em 100 semanas, nenhuma técnica de curto prazo acertou mais que o acaso de forma confirmada.</p>
+<h4>Análise de sentimento</h4>
+<p>Mede o humor das pessoas: notícias, redes sociais, índice de <b>Medo e Ganância</b> (0 = medo extremo, 100 = ganância extrema). Quando todo mundo está com medo, às vezes é hora de comprar; quando todo mundo está eufórico, às vezes é hora de ter cuidado. "Seja ganancioso quando os outros têm medo."</p>
+<h4>Análise macroeconômica</h4>
+<p>Olha o mundo: juros (Selic, juros americanos), inflação, dólar, crescimento dos países, guerras, eleições. Juros altos costumam atrapalhar a bolsa e as criptos, porque deixar o dinheiro parado rendendo juros fica atraente.</p>
+<h4>Análise quantitativa</h4>
+<p>Usa matemática, estatística e computador para testar ideias em milhares de casos do passado. É o que o MF Tracker faz: em vez de acreditar que um padrão funciona, ele <b>mede</b> se funcionou, com regras para não se enganar.</p>`},
+
+{id:"graficos", t:"5. Lendo um gráfico", h:`
+<h4>O candle (vela)</h4>
+<p>Cada "velinha" do gráfico resume um período (1 hora, 1 dia...). Ela mostra 4 preços: <b>abertura</b> (onde começou), <b>fechamento</b> (onde terminou), <b>máxima</b> (o mais alto) e <b>mínima</b> (o mais baixo). Verde (ou vazia) = fechou acima de onde abriu. Vermelha (ou cheia) = fechou abaixo. Os "pavios" finos mostram até onde o preço foi e voltou.</p>
+<h4>Tempo gráfico (timeframe)</h4>
+<p>O mesmo ativo pode ser visto em velas de 1 minuto, 1 hora ou 1 dia. No de 1 minuto parece um caos; no diário aparecem as tendências. Quanto menor o tempo gráfico, mais "barulho" e mais custo para operar.</p>
+<h4>Tendência</h4>
+<p>Alta = topos e fundos cada vez mais altos, como uma escada subindo. Baixa = topos e fundos cada vez mais baixos. Lateral = o preço anda de lado, sem direção. "A tendência é sua amiga": é mais fácil nadar a favor da correnteza.</p>
+<h4>Suporte e resistência</h4>
+<p><b>Suporte</b> é um "chão" onde o preço costuma parar de cair, porque muita gente acha barato e compra. <b>Resistência</b> é um "teto" onde costuma parar de subir, porque muita gente vende. Quando o preço atravessa um teto com força, chama-se <b>rompimento</b>.</p>
+<h4>Volume</h4>
+<p>Quanto foi negociado. Um movimento com volume alto tem mais "gente concordando". Um rompimento com volume baixo é mais suspeito.</p>`},
+
+{id:"indicadores", t:"6. Indicadores, um por um", h:`
+<p>Indicadores são contas feitas em cima do preço para tentar enxergar algo que o olho não vê. Nenhum prevê o futuro sozinho.</p>
+<ul>
+<li><b>Média móvel (MM)</b>: a média dos últimos N preços. A <b>média de 50 dias</b> é a média dos 50 últimos fechamentos. Preço acima da média = tendência de alta; abaixo = de baixa. <b>É a base do robô Regime Cripto</b>, uma das poucas regras que funcionaram nos nossos testes (para cortar quedas).</li>
+<li><b>Média exponencial (EMA)</b>: igual, mas dá mais peso aos dias recentes. O "cruzamento 9/21" é quando a média curta de 9 passa a de 21.</li>
+<li><b>Momento</b>: quanto o preço subiu ou caiu em N dias. "Momento de 21 pregões positivo" = está acima de onde estava um mês atrás. <b>É a base do robô Regime B3.</b></li>
+<li><b>RSI (Índice de Força Relativa)</b>: vai de 0 a 100. Acima de 70 = "subiu demais, esticado"; abaixo de 30 = "caiu demais". Não quer dizer que vai virar: em tendências fortes, pode ficar esticado por muito tempo.</li>
+<li><b>MACD</b>: compara duas médias exponenciais para medir se a força da tendência está aumentando ou diminuindo. Nos nossos testes, seguir o MACD no curto prazo <b>atrapalhou</b>.</li>
+<li><b>Bandas de Bollinger</b>: uma faixa em volta da média, larga quando o mercado está agitado e estreita quando está calmo. Tocar a banda de cima ou de baixo indica preço esticado.</li>
+<li><b>Estocástico</b>: mostra onde o preço está dentro da faixa recente (perto da máxima ou da mínima).</li>
+<li><b>ATR (amplitude média)</b>: quanto o preço anda, em média, por candle. Usado para colocar o stop a uma distância que faça sentido (ex.: 2 ATR).</li>
+<li><b>ADX</b>: mede se existe tendência forte (acima de 25) ou se o mercado está de lado (abaixo de 20).</li>
+<li><b>Canal de Donchian (rompimento de 20 dias)</b>: a máxima e a mínima dos últimos 20 dias. Comprar quando o preço passa a máxima é a famosa regra das "tartarugas". <b>É a base do robô Regime Memecoins.</b></li>
+<li><b>Volatilidade (desvio padrão)</b>: mede o tamanho típico do balanço. O MF Tracker usa para a "faixa provável" de preço, que foi a única previsão validada até agora.</li>
+</ul>`},
+
+{id:"estrategias", t:"7. Estratégias e estilos", h:`
+<ul>
+<li><b>Comprar e segurar (buy and hold)</b>: compra e esquece por anos. Simples e barato. O problema é aguentar as quedas grandes no meio do caminho.</li>
+<li><b>Seguir a tendência</b>: compra o que está subindo e sai do que está caindo. Perde um pouco no começo e no fim de cada movimento, mas evita os desastres. É o que os robôs de regime do MF Tracker fazem.</li>
+<li><b>Reversão à média</b>: aposta que o que subiu demais volta um pouco (e vice-versa). Existe em prazos de horas, mas é pequena demais para pagar os custos de quem não é profissional.</li>
+<li><b>Day trade</b>: abrir e fechar no mesmo dia. <b>Swing trade</b>: segurar de dias a semanas. <b>Position</b>: semanas a meses. Quanto mais curto, mais operações e mais custo.</li>
+<li><b>Scalping</b>: operações de segundos ou minutos atrás de centavos. Coisa de robôs com custo quase zero.</li>
+<li><b>Carry</b>: ganhar a diferença de juros (ex.: comprar real e vender dólar quando a Selic é muito maior). Em cripto, o "carry de funding": comprar a moeda e vender o contrato perpétuo, recebendo a taxa de financiamento. Nos nossos testes rendeu menos que o juro americano.</li>
+<li><b>Arbitragem</b>: comprar num lugar e vender mais caro em outro ao mesmo tempo. Quase sempre já explorada por robôs.</li>
+<li><b>Robôs de trading</b>: programas que seguem regras sozinhos. Um robô é só tão bom quanto a regra dele, e uma vitrine de robôs costuma mostrar apenas os que estão indo bem agora.</li>
+</ul>
+<h4>Regime: estar dentro ou fora</h4>
+<p>A ideia mais útil que o MF Tracker encontrou: em vez de adivinhar o preço de amanhã, decidir <b>se é hora de estar no mercado ou no caixa</b>. Quando a regra diz "fora", o dinheiro fica parado rendendo juros (renda fixa). Isso não aumenta muito o ganho médio, mas <b>corta as grandes quedas</b>: em cripto, a maior queda caiu de −64% para −31% no teste fora da amostra.</p>`},
+
+{id:"ciencia", t:"8. Como não se enganar (a ciência dos testes)", h:`
+<p>O maior inimigo de quem estuda o mercado é <b>achar padrão onde só existe sorte</b>. Jogue uma moeda 10 vezes e às vezes saem 7 caras. Não quer dizer que a moeda é viciada.</p>
+<ul>
+<li><b>Backtest</b>: testar uma regra no passado, como se você estivesse lá, dia a dia.</li>
+<li><b>Olhar o futuro (look-ahead)</b>: o erro de usar, sem perceber, uma informação que ainda não existia no dia do teste. O MF Tracker já cometeu esse erro (o "vento da semana") e corrigiu.</li>
+<li><b>Dentro e fora da amostra</b>: escolher a regra com uma parte dos dados (1ª metade) e conferir em outra parte que ela nunca viu (2ª metade). Se só funciona onde foi escolhida, era sorte.</li>
+<li><b>Sobreajuste (overfitting)</b>: testar tantas variações que alguma acaba "funcionando" por acaso. Como decorar as respostas da prova do ano passado: não serve para a prova nova.</li>
+<li><b>Taxa base</b>: quanto se acertaria sem regra nenhuma. Se o mercado subiu em 60% dos dias, "chutar alta sempre" acerta 60%. Uma regra que acerta 59% é <b>pior</b> que o chute.</li>
+<li><b>Expectativa (resultado esperado)</b>: acerto × ganho médio − erro × perda médio. <b>É o número mais importante de qualquer estratégia ou robô.</b> Um robô que acerta 52%, ganha R$ 56 e perde R$ 72 tem expectativa de 0,52 × 56 − 0,48 × 72 = <b>−R$ 5 por dia</b>: perde dinheiro mesmo "acertando mais".</li>
+<li><b>Fator de lucro</b>: soma dos ganhos ÷ soma das perdas. Acima de 1 = ganhou mais do que perdeu.</li>
+<li><b>Significância (t)</b>: diz se um resultado é grande o bastante para não ser sorte. Regra prática: t acima de 2 é "indício"; acima de 3 começa a ser sério.</li>
+<li><b>Correção por muitos testes (Bonferroni)</b>: se você testa 6.000 coisas, umas 300 vão parecer boas por acaso. Então a régua sobe: no MF Tracker, hoje, precisa de t acima de 4,5.</li>
+<li><b>Viés de sobrevivência</b>: só ver os que deram certo. Fundos e robôs ruins são fechados e somem da vitrine; os que sobram parecem geniais.</li>
+<li><b>Monte Carlo</b>: sortear milhares de "futuros possíveis" misturando pedaços do passado, para ver a faixa de resultados (o melhor caso, o pior e o típico) e não só uma linha.</li>
+<li><b>Simulação ao vivo (paper trading)</b>: o teste final. Registrar as decisões em tempo real, sem dinheiro, antes de arriscar. Ninguém consegue "trapacear" o futuro.</li>
+</ul>`},
+
+{id:"mente", t:"9. A cabeça do investidor", h:`
+<p>O cérebro humano foi feito para fugir de leões, não para investir. Ele erra de jeitos previsíveis:</p>
+<ul>
+<li><b>Aversão à perda</b>: perder R$ 100 dói umas duas vezes mais do que ganhar R$ 100 alegra. Por isso as pessoas seguram ações perdedoras "esperando voltar" e vendem as ganhadoras cedo demais.</li>
+<li><b>FOMO (medo de ficar de fora)</b>: ver todo mundo ganhando e entrar no topo, por impulso. Típico das memecoins.</li>
+<li><b>Efeito manada</b>: fazer o que todos estão fazendo, porque parece seguro. Às vezes a manada corre para o penhasco.</li>
+<li><b>Viés de confirmação</b>: procurar só as notícias que concordam com o que você já pensa.</li>
+<li><b>Excesso de confiança</b>: depois de alguns acertos, achar que descobriu o segredo. Poucos acertos seguidos são normais até na sorte.</li>
+<li><b>Falácia do apostador</b>: "caiu 5 dias seguidos, agora tem que subir". O mercado não tem memória desse jeito.</li>
+<li><b>Ancoragem</b>: ficar preso a um preço ("comprei a 100, só vendo a 100").</li>
+<li><b>Medo e ganância</b>: os dois motores das bolhas e dos pânicos.</li>
+</ul>
+<p><b>Como o MF Tracker se protege:</b> registra todas as previsões automaticamente, com prazo fixo, sem poder apagar os erros; usa regras escritas antes; e compara sempre com a taxa base e com "só segurar".</p>`},
+
+{id:"mercados", t:"10. Cada mercado tem seu jeito", h:`
+<h4>Cripto</h4>
+<p>Funciona 24 horas, 7 dias por semana. Muito volátil. <b>Exchange</b> é a "corretora" de cripto. <b>Carteira (wallet)</b> é onde as moedas ficam guardadas. <b>Stablecoin</b> (USDT, USDC) é uma cripto que tenta valer sempre 1 dólar. <b>Contrato perpétuo</b> é uma aposta no preço sem data para acabar, com alavancagem; o <b>funding</b> é uma taxa paga a cada 8 horas entre quem aposta na alta e quem aposta na queda.</p>
+<h4>Memecoins e DEX</h4>
+<p><b>DEX</b> é uma exchange sem dono, funcionando por programa na blockchain. Qualquer um cria uma moeda ali em minutos. <b>Liquidez</b> é quanto dinheiro existe para comprar e vender; com pouca liquidez, uma compra grande mexe muito o preço. <b>Rug pull</b> é o golpe em que o criador tira o dinheiro da moeda e foge. Sempre confira o <b>contrato</b> (o endereço da moeda), não o nome.</p>
+<h4>B3 (bolsa brasileira)</h4>
+<p>Pregão das 10h às 17h (horário de Brasília, com pequenas variações). <b>Home broker</b> é o site ou app da corretora para mandar ordens. <b>Mini índice (WIN)</b> é um contrato que acompanha o Ibovespa: cada ponto vale R$ 0,20 por contrato e ele é alavancado. <b>Mini dólar (WDO)</b> é o mesmo para o dólar. <b>ETF</b> como o BOVA11 é uma "cesta" que copia um índice, comprada como se fosse uma ação.</p>
+<h4>Bolsa americana</h4>
+<p>Pregão das 9h30 às 16h de Nova York. Os brasileiros acessam por contas internacionais ou por <b>BDRs</b> (recibos negociados na B3). Curiosidade dos nossos testes: quase todo o ganho das ações americanas acontece <b>de noite</b>, entre o fechamento e a abertura, mas aproveitar isso exige custo baixíssimo.</p>
+<h4>Dólar e juros</h4>
+<p>A <b>Selic</b> é a taxa básica de juros do Brasil, decidida pelo <b>Copom</b>. Juros altos atraem dinheiro estrangeiro (o dólar tende a cair) e deixam a renda fixa atraente (a bolsa sofre). Nos EUA, quem decide é o <b>Fed</b>. <b>Inflação</b> é o aumento geral dos preços: corrói o dinheiro parado.</p>
+<h4>Renda fixa</h4>
+<p>Emprestar dinheiro (ao governo ou a bancos) em troca de juros combinados: Tesouro Selic, CDB. É onde o dinheiro "fica" quando os robôs do MF Tracker estão "fora" do mercado.</p>`},
+
+{id:"exemplos", t:"11. Exemplos de análise, passo a passo", h:`
+<h4>Exemplo 1: avaliar um robô de vitrine</h4>
+<p>Robô: acerto 51,79%, ganho médio R$ 56,03 por dia, perda média R$ 71,62 por dia.</p>
+<ol><li>Expectativa = 0,5179 × 56,03 − 0,4821 × 71,62 = 29,02 − 34,53 = <b>−R$ 5,51 por dia</b>.</li>
+<li>Conclusão: acerta mais da metade, mas perde dinheiro, porque perde mais quando erra do que ganha quando acerta.</li>
+<li>Perguntas que faltam: quantos dias? qual a maior queda? custos incluídos? foi testado antes de lançar?</li></ol>
+<h4>Exemplo 2: o custo come o lucro</h4>
+<p>Você ganha em média 0,11% por operação, faz 4 por dia, e paga 0,30% de ida e volta.</p>
+<ol><li>Por operação: 0,11% − 0,30% = −0,19%.</li><li>Por dia: 4 × −0,19% = −0,76%.</li><li>Em um mês (22 dias): cerca de −15%. Uma ideia "certa" virou prejuízo.</li></ol>
+<h4>Exemplo 3: ler o painel "Dentro ou fora" do BTC</h4>
+<ol><li>Estado <b>fora</b>, preço 13% abaixo da média de 50 dias: a tendência é de baixa, a regra manda ficar no caixa.</li>
+<li>Gatilho: se o preço fechar o dia acima da média de 50, o estado vira <b>dentro</b>.</li>
+<li>Tamanho: se a volatilidade estiver acima da típica, o robô entra com menos de 100%.</li>
+<li>Saída por tempo: depois de 20 dias dentro, sai e espera 5 dias (foi o que funcionou na 1ª metade do histórico).</li></ol>
+<h4>Exemplo 4: usar a faixa provável</h4>
+<p>A aba Trading diz que em 4 horas o BTC fica entre −0,9% e +0,8% em metade dos casos. Isso <b>não diz a direção</b>. Serve para saber se um alvo é realista: um alvo de +3% em 4 horas está muito fora do comum e provavelmente não vai ser atingido.</p>
+<h4>Exemplo 5: a pergunta da taxa base</h4>
+<p>Numa semana de queda, um método "acerta" 59% dos palpites. Parece ótimo. Mas 92% dos palpites eram "queda", e chutar "queda" sempre acertaria 62%. O método foi <b>pior que o chute</b>. Sempre compare com o vento.</p>`},
+
+{id:"licoes", t:"12. O que o MF Tracker já aprendeu", h:`
+<ul>
+<li>Prever a direção de horas ou dias com indicadores técnicos clássicos <b>não funcionou</b> em 6.000 testes.</li>
+<li>Um modelo de aprendizado acerta 55% em 4 horas (de verdade, sem trapaça), mas o ganho é pequeno demais para pagar os custos de varejo.</li>
+<li>Prever o <b>tamanho</b> do movimento (a faixa provável) é bem mais fácil que prever a direção.</li>
+<li>Regras de <b>dentro ou fora</b> (regime) cortaram as grandes quedas fora da amostra. É a parte que vale a pena acompanhar ao vivo.</li>
+<li>Esperar confirmação para entrar no regime piorou o resultado: entrar no dia em que a regra vira.</li>
+<li>O custo de operar é o maior inimigo de quem opera muito.</li>
+<li>Toda conclusão é provisória até ser confirmada ao vivo, sem dinheiro real.</li>
+</ul>
+<p class="note">Nada aqui é recomendação de investimento. É estudo.</p>`},
+];
+const GLOSS = [
+["Ação","Pedacinho de uma empresa negociado na bolsa.","PETR4 é uma ação da Petrobras."],
+["Alavancagem","Operar com mais dinheiro do que você tem, emprestado. Multiplica ganhos e perdas.","Alavancagem de 10×: queda de 10% zera a conta."],
+["Alvo (take profit)","Preço em que você sai com lucro, combinado antes.","Comprou a 100, alvo em 115."],
+["Arbitragem","Comprar num lugar e vender mais caro em outro ao mesmo tempo.",""],
+["ATR","Amplitude média: quanto o preço anda por candle.","ATR de R$ 2: stop a 2 ATR fica R$ 4 abaixo."],
+["Backtest","Testar uma regra no passado, dia a dia, sem olhar o futuro.",""],
+["Banca","O dinheiro reservado para operar.","Banca de R$ 1.000."],
+["BDR","Recibo de ação estrangeira negociado na B3.",""],
+["Blockchain","O \"caderno público\" que registra as transações de cripto.",""],
+["Bollinger","Faixa em volta da média, que alarga quando o mercado agita.",""],
+["Bolsa de valores","O lugar (hoje, sistema) onde ações são negociadas. No Brasil, a B3.",""],
+["Bonferroni","Correção que aumenta a exigência quando se testa muita coisa.","Com 6.000 testes, só t acima de ~4,5 vale."],
+["Candle","Vela do gráfico: abertura, fechamento, máxima e mínima de um período.",""],
+["Carry","Ganhar com a diferença de juros entre duas moedas ou com o funding.",""],
+["Comprado","Posição que ganha se o preço subir.",""],
+["Copom","Comitê do Banco Central que decide a Selic.",""],
+["Correlação","Quanto dois ativos andam juntos (de −1 a +1).","BTC e ETH têm correlação alta."],
+["Corretora","Empresa intermediária que leva suas ordens à bolsa.","XP, Rico, BTG."],
+["Custo de ida e volta","Tudo que se paga para entrar e sair: taxas, spread, deslizamento.","0,10% + 0,10% + spread."],
+["Day trade","Abrir e fechar a operação no mesmo dia.",""],
+["Deslizamento","Diferença entre o preço que você queria e o que conseguiu.",""],
+["DEX","Exchange descentralizada, sem dono, na blockchain.",""],
+["Diversificação","Espalhar o dinheiro em coisas que não andam juntas.",""],
+["Donchian","Canal com a máxima e a mínima dos últimos N dias.","Rompimento de 20 dias."],
+["Emolumentos","Taxas cobradas pela própria bolsa (B3).",""],
+["ETF","Fundo que copia um índice e é negociado como ação.","BOVA11 copia o Ibovespa."],
+["Exchange","Corretora de criptomoedas.","Binance, Mercado Bitcoin."],
+["Expectativa","Acerto × ganho médio − erro × perda média. O número mais importante.","0,52 × 56 − 0,48 × 72 = −5."],
+["Fator de lucro","Soma dos ganhos ÷ soma das perdas. Acima de 1 = lucro.",""],
+["Fed","Banco central dos Estados Unidos.",""],
+["FOMO","Medo de ficar de fora, que faz comprar no topo.",""],
+["Fora da amostra","Dados que não foram usados para escolher a regra. Onde se confere se ela funciona.",""],
+["Funding","Taxa paga a cada 8 h entre comprados e vendidos nos contratos perpétuos.",""],
+["Ibovespa","Índice das principais ações brasileiras.",""],
+["Índice","Média ponderada de várias ações que mostra o rumo do mercado.",""],
+["Inflação","Aumento geral dos preços; corrói o dinheiro parado.",""],
+["Juros compostos","Juros sobre juros; fazem pequenos ganhos ou custos crescerem com o tempo.",""],
+["Liquidez","Facilidade de comprar e vender sem mexer muito o preço.",""],
+["Maior queda (drawdown)","A maior perda do topo ao fundo.","De R$ 1.500 para R$ 900 = −40%."],
+["MACD","Indicador que compara duas médias exponenciais para medir a força da tendência.",""],
+["Média móvel","Média dos últimos N preços, que \"anda\" com o tempo.","Média de 50 dias."],
+["Memecoin","Criptomoeda de moda ou piada, muito volátil.","DOGE, SHIB, PEPE."],
+["Mini índice (WIN)","Contrato futuro que acompanha o Ibovespa; cada ponto vale R$ 0,20.",""],
+["Momento","Quanto o preço variou em N dias.","Momento de 21 pregões."],
+["Monte Carlo","Sortear milhares de futuros possíveis para ver a faixa de resultados.",""],
+["Ordem limitada","Ordem que só executa no preço que você escolheu ou melhor.",""],
+["Ordem a mercado","Ordem que executa na hora, no preço disponível.",""],
+["Paper trading","Simular operações ao vivo sem dinheiro real.",""],
+["Perpétuo","Contrato de cripto sem vencimento, com alavancagem e funding.",""],
+["Pregão","O horário em que a bolsa está aberta.",""],
+["Regime","Estado do mercado (tendência de alta ou de baixa) que decide estar dentro ou fora.",""],
+["Renda fixa","Investimento com juros combinados: Tesouro, CDB.",""],
+["Resistência","\"Teto\" onde o preço costuma parar de subir.",""],
+["Retorno","Quanto o dinheiro cresceu ou encolheu, em %.","De 10 para 12 = +20%."],
+["Reversão à média","Ideia de que o que se afastou demais da média tende a voltar.",""],
+["Rompimento","Quando o preço atravessa um teto ou um chão importante.",""],
+["RSI","Indicador de 0 a 100; acima de 70 = esticado para cima, abaixo de 30 = para baixo.",""],
+["Rug pull","Golpe em que o criador da moeda some com o dinheiro.",""],
+["Selic","Taxa básica de juros do Brasil.",""],
+["Sobreajuste","Regra que só funciona nos dados em que foi escolhida, por excesso de ajuste.",""],
+["Spread","Diferença entre o melhor preço de compra e o de venda.",""],
+["Stablecoin","Cripto feita para valer 1 dólar.","USDT, USDC."],
+["Stop (stop loss)","Ordem para sair automaticamente se a perda chegar a certo ponto.",""],
+["Suporte","\"Chão\" onde o preço costuma parar de cair.",""],
+["Swing trade","Operações que duram de dias a semanas.",""],
+["t (significância)","Mede se um resultado é grande demais para ser sorte. Acima de 2 = indício; acima de 3 = sério.",""],
+["Taxa base","Quanto se acerta sem regra nenhuma, só chutando o mais comum.",""],
+["Taxa de acerto","Porcentagem de operações ou dias que deram lucro. Sozinha, não diz se a estratégia ganha dinheiro.",""],
+["Tendência","Direção geral do preço: alta, baixa ou lateral.",""],
+["Tempo gráfico","O período de cada candle: 1 minuto, 1 hora, 1 dia.",""],
+["Vendido","Posição que ganha se o preço cair.",""],
+["Viés de sobrevivência","Só ver o que deu certo, porque o que deu errado sumiu.",""],
+["Volatilidade","O quanto o preço balança.",""],
+["Volume","Quanto foi negociado num período.",""],
+];
+function renderProf(){
+  const el = $("#profBox"); if(!el) return;
+  const q = ($("#profQ").value||"").trim().toLowerCase();
+  const nav = PROF.map(c=>`<a href="#prof-${c.id}" class="pill" style="text-decoration:none;display:inline-block;margin:0 6px 6px 0">${esc(c.t)}</a>`).join("");
+  const gl = GLOSS.filter(([t,d,e])=>!q || (t+" "+d+" "+e).toLowerCase().includes(q));
+  const caps = q ? PROF.filter(c=>c.h.replace(/<[^>]+>/g," ").toLowerCase().includes(q)) : PROF;
+  el.innerHTML = `<div style="margin:12px 0">${nav}<a href="#prof-glossario" class="pill" style="text-decoration:none;display:inline-block">Glossário A–Z</a></div>
+    ${caps.map(c=>`<div class="card method" id="prof-${c.id}" style="margin-top:14px"><h3 style="text-transform:none;letter-spacing:0;font-size:17px">${esc(c.t)}</h3>${c.h}</div>`).join("") || `<p class="mut">Nenhum capítulo fala de "${esc(q)}".</p>`}
+    <div class="card" id="prof-glossario" style="margin-top:14px"><h3 style="text-transform:none;letter-spacing:0;font-size:17px">Glossário A–Z <span class="mut" style="font-size:12px">${gl.length} termos</span></h3>
+    <div style="overflow-x:auto"><table><tr><th>Termo</th><th>O que é</th><th>Exemplo</th></tr>${gl.map(([t,d,e])=>`<tr><td><b>${esc(t)}</b></td><td>${esc(d)}</td><td class="mut">${esc(e)}</td></tr>`).join("")}</table></div></div>`;
+}
+
 let TR_SUG = null;
 async function trSugestoes(){
   const el = $("#trSug"); el.innerHTML = `<p class="mut">buscando candles e calculando (pode levar até 1 minuto)…</p>`;
@@ -1757,7 +2035,7 @@ async function cycle(){
   }catch(e){ console.error(e); }
 }
 async function boot(){
-  renderMethod(); fillCfg(); initChart(); renderFeeds(); renderAll(); initVault().then(loadValid); initTrading();
+  renderMethod(); try{ renderProf(); $("#profQ").oninput = renderProf; }catch(e){ console.error(e); } fillCfg(); initChart(); renderFeeds(); renderAll(); initVault().then(loadValid); initTrading();
   // cada fonte desenha a tela assim que chega, sem esperar as mais lentas (DEX e brapi têm filas)
   let first=true; const step = pr => pr.then(()=>{ runAnalysis(); renderAll(); if(first){ first=false; renderPanel(true); } }).catch(e=>console.error(e));
   await Promise.all([step(loadContext()), step(loadAllCandles()), step(loadNews(false)), step(loadDex())]);
