@@ -110,18 +110,18 @@ def factor_matrix(cls, df, I, fng=None):
     return F
 
 
-def compute_niche(group):
+def compute_niche(group, tf=86400):
     """group: lista de dicts {df, F} da mesma classe. Preenche a coluna nicho (6) com a média do momento dos pares no mesmo dia."""
     maps = []
     for a in group:
-        days = (a["df"]["t"].to_numpy() // 86400).astype(int)
+        days = (a["df"]["t"].to_numpy() // tf).astype(int)
         m = {}
         for i, d in enumerate(days):
             if np.isfinite(a["F"][i, 1]):
                 m[d] = a["F"][i, 1]
         maps.append(m)
     for gi, a in enumerate(group):
-        days = (a["df"]["t"].to_numpy() // 86400).astype(int)
+        days = (a["df"]["t"].to_numpy() // tf).astype(int)
         for i, d in enumerate(days):
             if not np.isfinite(a["F"][i, 0]):
                 continue
@@ -139,18 +139,20 @@ def combine(F, w):
 SHRINK_K = 100
 
 
-def analyze_at(cls, I, F, i, w, settings=DEFAULT_SETTINGS, cal_shift=0.0, horizons=HORIZONTES, shrink_k=SHRINK_K):
+def analyze_at(cls, I, F, i, w, settings=DEFAULT_SETTINGS, cal_shift=0.0, horizons=HORIZONTES, shrink_k=SHRINK_K, max_hist=None, sHist=None):
     """Análise como o HTML faria no fechamento do candle i, usando só dados até i (sem olhar o futuro)."""
     cost = CLASSES[cls]["cost"]
     C = I["C"]
-    sHist = combine(F, w)
+    if sHist is None:
+        sHist = combine(F, w)
     sTech = sHist[i]
     if not np.isfinite(sTech):
         return None
     d = 1 if sTech >= 0 else -1
     res = []
     for h in horizons:
-        j = np.arange(WARM, max(WARM, i - h))       # j + h < i: o resultado do análogo já era conhecido
+        j0 = WARM if not max_hist else max(WARM, i - h - max_hist)
+        j = np.arange(j0, max(j0, i - h))           # j + h < i: o resultado do análogo já era conhecido
         j = j[np.isfinite(sHist[j])]
         if len(j) < 40:
             continue
