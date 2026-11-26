@@ -246,7 +246,7 @@ svg.spark{display:block}
    MF Tracker v0.1 — motor de análise + diário de simulações
    Tudo roda no navegador. Fontes reais, sem dados inventados.
    ============================================================ */
-const VERSION = "0.4.0";
+const VERSION = "0.4.1";
 const DAY = 86400000;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -1267,6 +1267,7 @@ function renderMethod(){
   <h4>8. Memecoins novas (DEX)</h4><p>O radar lê os pools em tendência e os novos da GeckoTerminal e as moedas impulsionadas da DexScreener. Moedas acompanhadas usam candles por hora e prazos de 6, 24 e 72 horas, porque quase não têm histórico diário. Previsões de queda nessas moedas ficam só como previsão, porque não dá para vender a descoberto numa DEX. Se a liquidez despencar, a análise registra o risco de golpe.</p>
   <h4>O que o backtest mostrou (26/11/2026)</h4><p>Testei este método em 24 ativos, de 2012 (ou da listagem) até hoje, sem olhar o futuro. Resultado: <b>sem vantagem real</b>. As chances saíam cerca de 10 pontos acima do acerto real (corrigido nesta versão: a chance agora é puxada para a taxa base conforme o número de casos parecidos). Escolhendo fatores numa metade do histórico e testando na outra, o retorno acima da tendência média do mercado ficou em zero. Ou seja: hoje os registros deste programa são <b>estudo</b>, não sinal para operar. Relatórios completos no vault, em 01 Projeto/Backtest.</p>
   <h4>Aba Trading</h4><p>Para qualquer ativo, valor e prazo (15 min a 14 dias), a aba busca candles reais do mesmo tamanho do prazo (cripto: Coinbase, até 1.200 candles; demais mercados: diários) e mede como terminaram todas as janelas passadas desse prazo: chance de lucro depois dos custos, resultado médio, faixa de 50% dos casos e extremos. Se houver histórico, filtra os momentos em que a pontuação técnica estava parecida com a de agora, puxando a chance para a taxa sem filtro (mesmo encolhimento K=100). Stop e alvo opcionais mostram qual costuma ser tocado primeiro. Cada posição marcada é avaliada sozinha no vencimento com preço real e vira nota TR- em 04 Operações. O selo vem de 99 Meta/validacao.json, gerado por coletor\backtest_intradiario.py: só verde significa vantagem confirmada fora da amostra.</p>
+  <h4>Faixa provável e volatilidade</h4><p>Prever a direção não passou em nenhum teste; prever o tamanho do movimento é mais viável. Se o vault tiver 99 Meta/faixa.json (gerado por coletor\faixa.py), a faixa de 50% e os extremos da aba Trading passam a ser medidos em relação à volatilidade do momento (média exponencial dos retornos), com o peso alfa escolhido na 1ª metade do histórico e conferido na 2ª. O placar "caiu na faixa prevista" mostra se isso se confirma ao vivo: o certo é perto de 50%.</p>
   <h4>Limites conhecidos (sinceridade)</h4><ul>
   <li>Memecoins novas têm poucas centenas de horas de histórico e são dominadas por baleias, bots e notícias de redes sociais que o programa ainda não lê (X/Telegram). Qualquer chance calculada para elas é bem menos confiável.</li>
   <li>Notícias e contexto global ainda <b>não têm calibração histórica</b> (não temos manchetes antigas). Por isso entram só como ajuste pequeno, e o aprendizado vai mostrar se ajudam.</li>
@@ -1286,6 +1287,7 @@ function toast(m){ const t=$("#toast"); t.textContent=m; t.style.display="block"
 const TR_PRESETS = [[900,"15 min"],[1800,"30 min"],[3600,"1 hora"],[7200,"2 horas"],[14400,"4 horas"],[28800,"8 horas"],[43200,"12 horas"],[86400,"1 dia"],[172800,"2 dias"],[259200,"3 dias"],[604800,"7 dias"],[1209600,"14 dias"]];
 const CB_GRANS = [60,300,900,3600,21600,86400];
 let VALID = null; // 99 Meta/validacao.json do vault (selos do backtest de 1 hora)
+let FAIXA = null; // 99 Meta/faixa.json: quanto a volatilidade de agora pesa na faixa (coletor/faixa.py)
 const DAILY_VALID = {data:"26/11/2026", txt:"testado em candles diários (3 a 14 dias): sem vantagem"};
 const TR_CACHE = {};
 let TR_LAST = null; // última simulação mostrada
@@ -1332,7 +1334,10 @@ function trStats(a, cands, h, dir, stopPct, tgtPct){
   }
   const n = rr.length, wins = rr.filter(x=>x>0).length;
   const pU = (wins+1)/(n+2), eU = mean(rr);
-  const out = {n, pU, eU, q05:quant(rr,.05), q25:quant(rr,.25), q50:quant(rr,.5), q75:quant(rr,.75), q95:quant(rr,.95), cost, h, N,
+  // faixa: se faixa.py validou, os retornos são medidos em "volatilidade do momento"^alfa e reescalados pela de agora
+  const fx = trFaixaAlfa(a, h, cands), sc = fx.sig ? (j=>Math.pow(fx.sig[j], fx.alfa)) : (()=>1);
+  const rz = rr.map((x,j)=>(x+cost)/sc(j)), sNow = sc(N-1), qf = q=>quant(rz,q)*sNow-cost;
+  const out = {n, pU, eU, q05:qf(.05), q25:qf(.25), q50:qf(.5), q75:qf(.75), q95:qf(.95), cost, h, N, faixaAlfa: fx.alfa,
     pStop: stopFirst.length? mean(stopFirst.map(Number)) : null, pTgt: tgtFirst.length? mean(tgtFirst.map(Number)) : null,
     from: cands[0].t, to: cands[N-1].t};
   // condicional: pontuação técnica de hoje contra a mesma pontuação no passado
@@ -1349,6 +1354,17 @@ function trStats(a, cands, h, dir, stopPct, tgtPct){
     }
   }
   return out;
+}
+function trFaixaAlfa(a, h, cands){
+  // só em candles intradiários: o teste foi em horas. Fator 0,94 por hora, convertido para o tamanho do candle.
+  const g = cands.length>1 ? cands[1].t - cands[0].t : 86400;
+  if(!FAIXA || !FAIXA.alfa || g >= 86400) return {alfa:0};
+  const hh = h*g/3600, hs = [1,4,12,24]; const near = hs.reduce((b,x)=>Math.abs(Math.log(x/hh))<Math.abs(Math.log(b/hh))?x:b, 1);
+  const alfa = +FAIXA.alfa[near+"h"] || 0; if(!alfa) return {alfa:0};
+  const lam = Math.pow(FAIXA.lambda||0.94, g/3600), C = cands.map(k=>k.c), sig = new Array(C.length);
+  let s2 = 0, m = Math.min(200, C.length-1); for(let i=1;i<=m;i++){ const x=Math.log(C[i]/C[i-1]); s2 += x*x/m; }
+  for(let i=0;i<C.length;i++){ const x = i? Math.log(C[i]/C[i-1]) : 0; s2 = lam*s2 + (1-lam)*x*x; sig[i] = Math.sqrt(s2)*Math.sqrt(h) || 1e-9; }
+  return {alfa, sig};
 }
 function trSelo(a, hold){
   if(a.cls==="crypto"||a.cls==="meme"){
@@ -1387,7 +1403,7 @@ async function trSimular(){
       <div class="g4">
         <div class="card kpi"><div class="l">Chance de lucro (após custos)</div><div class="v ${p>=0.5?"up":"dn"}">${(p*100).toFixed(1)}%</div><div class="s">sem filtro: ${(st.pU*100).toFixed(1)}%${st.cond?` · casos parecidos: ${st.cond.n}`:""}</div></div>
         <div class="card kpi"><div class="l">Resultado esperado</div><div class="v ${e>=0?"up":"dn"}">${brl(amount*e)}</div><div class="s">${pct(e)} por operação</div></div>
-        <div class="card kpi"><div class="l">Faixa provável (50% dos casos)</div><div class="v" style="font-size:16px">${brl(amount*st.q25)} a ${brl(amount*st.q75)}</div><div class="s">mediana ${brl(amount*st.q50)}</div></div>
+        <div class="card kpi"><div class="l">Faixa provável (50% dos casos)</div><div class="v" style="font-size:16px">${brl(amount*st.q25)} a ${brl(amount*st.q75)}</div><div class="s">mediana ${brl(amount*st.q50)}${st.faixaAlfa?` · ajustada à volatilidade de agora (alfa ${st.faixaAlfa})`:""}</div></div>
         <div class="card kpi"><div class="l">Extremos (5% piores / melhores)</div><div class="v" style="font-size:16px"><span class="dn">${brl(amount*st.q05)}</span> / <span class="up">${brl(amount*st.q95)}</span></div><div class="s">custo de ida e volta ${pct(st.cost)} = ${brl(amount*st.cost)}</div></div>
       </div>
       ${(stopPct||tgtPct)?`<p class="note">Nessas janelas, o preço tocou ${stopPct?`o stop (${pct(-stopPct)}) primeiro em <b>${(st.pStop*100).toFixed(0)}%</b>`:""}${stopPct&&tgtPct?" e ":""}${tgtPct?`o alvo (${pct(tgtPct)}) primeiro em <b>${(st.pTgt*100).toFixed(0)}%</b>`:""} dos casos.</p>`:""}
@@ -1477,6 +1493,7 @@ async function trVault(t){
 async function loadValid(){
   if(VAULT_STATE!=="ok") return;
   try{ const d = await VAULT.getDirectoryHandle("99 Meta"); const fh = await d.getFileHandle("validacao.json"); VALID = JSON.parse(await (await fh.getFile()).text()); }catch(e){ VALID = null; }
+  try{ const d = await VAULT.getDirectoryHandle("99 Meta"); const fh = await d.getFileHandle("faixa.json"); FAIXA = JSON.parse(await (await fh.getFile()).text()); }catch(e){ FAIXA = null; }
 }
 let TR_SUG = null;
 async function trSugestoes(){
